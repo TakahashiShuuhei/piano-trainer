@@ -51,7 +51,7 @@ export interface MIDIInputManager {
   onNoteOff(callback: (note: number, toneTime: number) => void): void;
   convertNoteToFrequency(note: number): number;
   convertNoteToNoteName(note: number): string;
-  syncWithTransport(): void;
+  syncWithTransport(): Promise<void>;
   getTransportTime(): number;
   convertMidiTimeToTransportTime(midiTimestamp: number): number;
   isDeviceConnected(): boolean;

@@ -1,7 +1,24 @@
 import { PianoPracticeApp } from './app/PianoPracticeApp.js';
 
-// アプリケーションの初期化
+console.log('=== INDEX.JS LOADED ===');
+
+// 最もシンプルなテスト
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('=== DOM CONTENT LOADED ===');
+  
+  // 直接ボタンにイベントリスナーを追加してテスト
+  const testBtn = document.getElementById('connectMidiBtn');
+  if (testBtn) {
+    console.log('=== BUTTON FOUND ===');
+    testBtn.addEventListener('click', () => {
+      console.log('=== DIRECT BUTTON CLICK ===');
+      alert('ボタンがクリックされました！');
+    });
+  } else {
+    console.error('=== BUTTON NOT FOUND ===');
+  }
+  
+  // アプリケーションの初期化
   const app = new PianoPracticeApp();
   app.initialize();
 });

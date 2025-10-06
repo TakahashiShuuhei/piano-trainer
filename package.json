@@ -4,8 +4,8 @@
   "description": "MIDI対応ピアノ練習用Webアプリケーション",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "esbuild src/index.ts --bundle --outfile=dist/bundle.js --format=iife --platform=browser --target=es2020",
+    "dev": "esbuild src/index.ts --bundle --outfile=dist/bundle.js --format=iife --platform=browser --target=es2020 --watch",
     "serve": "http-server dist",
     "test": "jest"
   },
@@ -15,6 +15,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.5",
     "@types/web": "^0.0.99",
+    "esbuild": "^0.25.10",
     "http-server": "^14.1.1",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.2.0",

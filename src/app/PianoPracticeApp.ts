@@ -1,11 +1,11 @@
-import { 
-  GameEngine, 
-  MIDIInputManager as IMIDIInputManager, 
-  UIRenderer, 
-  ContentManager, 
+import {
+  GameEngine,
+  MIDIInputManager as IMIDIInputManager,
+  UIRenderer,
+  ContentManager,
   MetronomeService,
   GameState,
-  PracticeContent 
+  PracticeContent
 } from '../types/index.js';
 import { MIDIInputManager } from '../components/MIDIInputManager.js';
 
@@ -15,7 +15,7 @@ export class PianoPracticeApp {
   private uiRenderer!: UIRenderer;
   private contentManager!: ContentManager;
   private metronome!: MetronomeService;
-  
+
   private canvas!: HTMLCanvasElement;
   private isInitialized = false;
 
@@ -26,24 +26,34 @@ export class PianoPracticeApp {
   public async initialize(): Promise<void> {
     try {
       console.log('Piano Practice App initializing...');
-      
+
       // DOM要素の取得
+      console.log('Step 1: Setting up DOM elements...');
       this.setupDOMElements();
-      
+      console.log('Step 1: DOM elements setup complete');
+
       // コンポーネントの初期化（後で実装）
+      console.log('Step 2: Initializing components...');
       await this.initializeComponents();
-      
+      console.log('Step 2: Components initialization complete');
+
       // イベントリスナーの設定
+      console.log('Step 3: Setting up event listeners...');
       this.setupEventListeners();
-      
+      console.log('Step 3: Event listeners setup complete');
+
       // 初期コンテンツの読み込み
+      console.log('Step 4: Loading initial content...');
       this.loadInitialContent();
-      
+      console.log('Step 4: Initial content loading complete');
+
       this.isInitialized = true;
       console.log('Piano Practice App initialized successfully');
-      
+
     } catch (error) {
       console.error('Failed to initialize app:', error);
+      console.error('Error details:', error);
+      alert(`初期化エラー: ${error}`);
       this.showError('アプリケーションの初期化に失敗しました。');
     }
   }
@@ -56,40 +66,73 @@ export class PianoPracticeApp {
   }
 
   private async initializeComponents(): Promise<void> {
-    // MIDIInputManagerの初期化
-    this.midiManager = new MIDIInputManager();
-    
-    // MIDI入力イベントのリスナーを設定
-    this.midiManager.onNoteOn((note, velocity, toneTime) => {
-      this.handleNoteOn(note, velocity, toneTime);
-    });
-    
-    this.midiManager.onNoteOff((note, toneTime) => {
-      this.handleNoteOff(note, toneTime);
-    });
+    try {
+      console.log('=== INITIALIZING COMPONENTS ===');
 
-    console.log('MIDI Input Manager initialized');
-    
-    // TODO: 他のコンポーネントの実装後に初期化処理を追加
+      // MIDIInputManagerの初期化
+      console.log('Creating MIDIInputManager...');
+      this.midiManager = new MIDIInputManager();
+      console.log('MIDIInputManager created successfully');
+
+      // MIDI入力イベントのリスナーを設定
+      console.log('Setting up MIDI event listeners...');
+      this.midiManager.onNoteOn((note, velocity, toneTime) => {
+        this.handleNoteOn(note, velocity, toneTime);
+      });
+
+      this.midiManager.onNoteOff((note, toneTime) => {
+        this.handleNoteOff(note, toneTime);
+      });
+
+      console.log('MIDI Input Manager initialized successfully');
+
+      // TODO: 他のコンポーネントの実装後に初期化処理を追加
+    } catch (error) {
+      console.error('=== COMPONENT INITIALIZATION FAILED ===', error);
+      throw error;
+    }
   }
 
+
+
   private setupEventListeners(): void {
+    console.log('=== SETTING UP EVENT LISTENERS ===');
+
     // MIDI接続ボタン
     const connectMidiBtn = document.getElementById('connectMidiBtn');
-    connectMidiBtn?.addEventListener('click', () => this.handleMidiConnect());
+    if (connectMidiBtn) {
+      console.log('MIDI connect button found, adding APP event listener');
+      connectMidiBtn.addEventListener('click', () => {
+        console.log('=== APP MIDI CONNECT BUTTON CLICKED ===');
+        this.handleMidiConnect();
+      });
+    } else {
+      console.error('MIDI connect button not found in setupEventListeners');
+    }
 
     // ゲーム制御ボタン
     const startBtn = document.getElementById('startBtn');
-    startBtn?.addEventListener('click', () => this.handleStart());
+    if (startBtn) {
+      startBtn.addEventListener('click', () => this.handleStart());
+    }
 
     const pauseBtn = document.getElementById('pauseBtn');
-    pauseBtn?.addEventListener('click', () => this.handlePause());
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => this.handlePause());
+    }
 
     const stopBtn = document.getElementById('stopBtn');
-    stopBtn?.addEventListener('click', () => this.handleStop());
+    if (stopBtn) {
+      stopBtn.addEventListener('click', () => this.handleStop());
+    }
 
     // ウィンドウリサイズ
     window.addEventListener('resize', () => this.handleResize());
+
+    // キーボード入力のフォールバック（MIDI未接続時用）
+    document.addEventListener('keydown', (event) => this.handleKeyboardInput(event));
+
+    console.log('Event listeners setup completed');
   }
 
   private loadInitialContent(): void {
@@ -98,18 +141,28 @@ export class PianoPracticeApp {
   }
 
   private async handleMidiConnect(): Promise<void> {
+    console.log('=== APP MIDI CONNECT HANDLER CALLED ===');
+
+    if (!this.midiManager) {
+      console.error('=== MIDI MANAGER NOT INITIALIZED ===');
+      alert('MIDI Manager が初期化されていません');
+      return;
+    }
+
+    console.log('=== MIDI MANAGER EXISTS, PROCEEDING ===');
+
     try {
       console.log('Attempting MIDI connection...');
-      
+
       const success = await this.midiManager.requestAccess();
-      
+
       if (success) {
         const devices = this.midiManager.getAvailableDevices();
         console.log(`Found ${devices.length} MIDI input devices`);
-        
+
         if (devices.length > 0) {
           // Transport との同期を開始
-          this.midiManager.syncWithTransport();
+          await this.midiManager.syncWithTransport();
           this.updateMidiStatus(true);
           console.log('MIDI connection successful');
         } else {
@@ -190,17 +243,17 @@ export class PianoPracticeApp {
 
   private handleNoteOn(note: number, velocity: number, toneTime: number): void {
     console.log(`Note ON received: ${note} (${this.midiManager.convertNoteToNoteName(note)}), velocity: ${velocity}`);
-    
+
     // TODO: GameEngineの実装後に演奏評価処理を追加
     // const result = this.gameEngine.processNoteInput(note, toneTime);
-    
+
     // 視覚的フィードバック（簡易版）
     this.showNoteHit(note, velocity);
   }
 
   private handleNoteOff(note: number, toneTime: number): void {
     console.log(`Note OFF received: ${note} (${this.midiManager.convertNoteToNoteName(note)})`);
-    
+
     // TODO: 必要に応じてNote Offの処理を追加
   }
 
@@ -213,15 +266,48 @@ export class PianoPracticeApp {
       ctx.fillStyle = `rgba(76, 175, 80, ${velocity / 127})`;
       ctx.font = '24px Arial';
       ctx.fillText(
-        this.midiManager.convertNoteToNoteName(note), 
-        Math.random() * (canvas.width - 100) + 50, 
+        this.midiManager.convertNoteToNoteName(note),
+        Math.random() * (canvas.width - 100) + 50,
         50
       );
-      
+
       // 一定時間後にクリア（簡易版）
       setTimeout(() => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }, 1000);
+    }
+  }
+
+  private handleKeyboardInput(event: KeyboardEvent): void {
+    console.log(`Key pressed: ${event.key}`);
+
+    // キーボードをピアノの鍵盤として使用（フォールバック機能）
+    const keyToNote: { [key: string]: number } = {
+      'a': 60, // C4
+      'w': 61, // C#4
+      's': 62, // D4
+      'e': 63, // D#4
+      'd': 64, // E4
+      'f': 65, // F4
+      't': 66, // F#4
+      'g': 67, // G4
+      'y': 68, // G#4
+      'h': 69, // A4
+      'u': 70, // A#4
+      'j': 71, // B4
+      'k': 72, // C5
+    };
+
+    const note = keyToNote[event.key.toLowerCase()];
+    if (note !== undefined && !event.repeat) {
+      console.log(`=== KEYBOARD NOTE: ${event.key} -> Note ${note} ===`);
+      alert(`キーボード入力: ${event.key} -> 音符 ${note}`);
+      this.handleNoteOn(note, 100, 0); // velocity 100, toneTime 0 for keyboard input
+
+      // キーボード入力の場合は短時間後にNote Offを送信
+      setTimeout(() => {
+        this.handleNoteOff(note, 0);
+      }, 200);
     }
   }
 
