@@ -6,7 +6,7 @@ import {
   MetronomeService,
   GameState,
   PracticeContent 
-} from '../types';
+} from '../types/index.js';
 
 export class PianoPracticeApp {
   private gameEngine!: GameEngine;

@@ -1,4 +1,4 @@
-import { PianoPracticeApp } from './app/PianoPracticeApp';
+import { PianoPracticeApp } from './app/PianoPracticeApp.js';
 
 // アプリケーションの初期化
 document.addEventListener('DOMContentLoaded', () => {
