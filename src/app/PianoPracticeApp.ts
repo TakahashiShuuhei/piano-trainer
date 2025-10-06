@@ -1,16 +1,17 @@
 import { 
   GameEngine, 
-  MIDIInputManager, 
+  MIDIInputManager as IMIDIInputManager, 
   UIRenderer, 
   ContentManager, 
   MetronomeService,
   GameState,
   PracticeContent 
 } from '../types/index.js';
+import { MIDIInputManager } from '../components/MIDIInputManager.js';
 
 export class PianoPracticeApp {
   private gameEngine!: GameEngine;
-  private midiManager!: MIDIInputManager;
+  private midiManager!: IMIDIInputManager;
   private uiRenderer!: UIRenderer;
   private contentManager!: ContentManager;
   private metronome!: MetronomeService;
@@ -55,8 +56,21 @@ export class PianoPracticeApp {
   }
 
   private async initializeComponents(): Promise<void> {
-    // TODO: 各コンポーネントの実装後に初期化処理を追加
-    console.log('Components will be initialized here');
+    // MIDIInputManagerの初期化
+    this.midiManager = new MIDIInputManager();
+    
+    // MIDI入力イベントのリスナーを設定
+    this.midiManager.onNoteOn((note, velocity, toneTime) => {
+      this.handleNoteOn(note, velocity, toneTime);
+    });
+    
+    this.midiManager.onNoteOff((note, toneTime) => {
+      this.handleNoteOff(note, toneTime);
+    });
+
+    console.log('MIDI Input Manager initialized');
+    
+    // TODO: 他のコンポーネントの実装後に初期化処理を追加
   }
 
   private setupEventListeners(): void {
@@ -86,11 +100,30 @@ export class PianoPracticeApp {
   private async handleMidiConnect(): Promise<void> {
     try {
       console.log('Attempting MIDI connection...');
-      // TODO: MIDIInputManagerの実装後に接続処理を追加
-      this.updateMidiStatus(true);
+      
+      const success = await this.midiManager.requestAccess();
+      
+      if (success) {
+        const devices = this.midiManager.getAvailableDevices();
+        console.log(`Found ${devices.length} MIDI input devices`);
+        
+        if (devices.length > 0) {
+          // Transport との同期を開始
+          this.midiManager.syncWithTransport();
+          this.updateMidiStatus(true);
+          console.log('MIDI connection successful');
+        } else {
+          this.showError('MIDI入力デバイスが見つかりません。電子ピアノが接続されているか確認してください。');
+          this.updateMidiStatus(false);
+        }
+      } else {
+        this.showError('MIDI アクセスが拒否されました。ブラウザの設定を確認してください。');
+        this.updateMidiStatus(false);
+      }
     } catch (error) {
       console.error('MIDI connection failed:', error);
       this.showError('MIDI機器の接続に失敗しました。');
+      this.updateMidiStatus(false);
     }
   }
 
@@ -152,6 +185,43 @@ export class PianoPracticeApp {
       startBtn.disabled = state.isPlaying;
       pauseBtn.disabled = !state.isPlaying;
       stopBtn.disabled = !state.isPlaying;
+    }
+  }
+
+  private handleNoteOn(note: number, velocity: number, toneTime: number): void {
+    console.log(`Note ON received: ${note} (${this.midiManager.convertNoteToNoteName(note)}), velocity: ${velocity}`);
+    
+    // TODO: GameEngineの実装後に演奏評価処理を追加
+    // const result = this.gameEngine.processNoteInput(note, toneTime);
+    
+    // 視覚的フィードバック（簡易版）
+    this.showNoteHit(note, velocity);
+  }
+
+  private handleNoteOff(note: number, toneTime: number): void {
+    console.log(`Note OFF received: ${note} (${this.midiManager.convertNoteToNoteName(note)})`);
+    
+    // TODO: 必要に応じてNote Offの処理を追加
+  }
+
+  private showNoteHit(note: number, velocity: number): void {
+    // 簡易的な視覚フィードバック
+    const canvas = this.canvas;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // 画面上部に音符名を表示
+      ctx.fillStyle = `rgba(76, 175, 80, ${velocity / 127})`;
+      ctx.font = '24px Arial';
+      ctx.fillText(
+        this.midiManager.convertNoteToNoteName(note), 
+        Math.random() * (canvas.width - 100) + 50, 
+        50
+      );
+      
+      // 一定時間後にクリア（簡易版）
+      setTimeout(() => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }, 1000);
     }
   }
 

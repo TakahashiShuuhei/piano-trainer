@@ -7,17 +7,17 @@
   - _要件: 1.1, 2.1_
 
 - [ ] 2. MIDI入力システムの実装
-  - [ ] 2.1 MIDIInputManagerクラスの実装
+  - [x] 2.1 MIDIInputManagerクラスの実装
     - Tone.js MIDIオブジェクトを使用したMIDI機器検出と接続
     - ノートオン/オフイベントの処理とコールバック機能
     - _要件: 1.1, 1.2, 1.3_
 
-  - [ ] 2.2 MIDI入力とTone.js Transportの同期
+  - [x] 2.2 MIDI入力とTone.js Transportの同期
     - MIDI入力タイムスタンプをTone.Transport.nowに変換
     - 音程変換機能（Tone.Midi().toFrequency()）の実装
     - _要件: 1.3, 3.1_
 
-  - [ ] 2.3 MIDI入力の単体テスト
+  - [x] 2.3 MIDI入力の単体テスト
     - MockMIDIInputを使用したテストケース作成
     - 異なるMIDI機器での動作確認テスト
     - _要件: 1.1, 1.4_

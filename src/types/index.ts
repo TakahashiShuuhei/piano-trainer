@@ -50,6 +50,11 @@ export interface MIDIInputManager {
   onNoteOn(callback: (note: number, velocity: number, toneTime: number) => void): void;
   onNoteOff(callback: (note: number, toneTime: number) => void): void;
   convertNoteToFrequency(note: number): number;
+  convertNoteToNoteName(note: number): string;
+  syncWithTransport(): void;
+  getTransportTime(): number;
+  convertMidiTimeToTransportTime(midiTimestamp: number): number;
+  isDeviceConnected(): boolean;
   disconnect(): void;
 }
 
