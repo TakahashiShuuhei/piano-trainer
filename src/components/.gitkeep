@@ -1,0 +1,7 @@
+# このディレクトリには各コンポーネントの実装ファイルが配置されます
+# - MIDIInputManager
+# - GameEngine  
+# - UIRenderer
+# - ContentManager
+# - MetronomeService
+# - ScoreEvaluator

@@ -1,0 +1,26 @@
+{
+  "name": "piano-practice-app",
+  "version": "1.0.0",
+  "description": "MIDI対応ピアノ練習用Webアプリケーション",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "serve": "http-server dist",
+    "test": "jest"
+  },
+  "dependencies": {
+    "tone": "^14.7.77"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "@types/web": "^0.0.99",
+    "http-server": "^14.1.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.2.2"
+  },
+  "keywords": ["piano", "midi", "music", "practice", "tone.js"],
+  "author": "",
+  "license": "MIT"
+}
