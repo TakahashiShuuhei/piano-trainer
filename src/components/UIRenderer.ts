@@ -19,7 +19,14 @@ export class UIRenderer {
       success: '#28a745',
       error: '#dc3545',
       note: '#007bff',
-      noteHit: '#28a745'
+      noteHit: '#28a745',
+      whiteKey: '#ffffff',
+      blackKey: '#333333',
+      whiteKeyNote: '#4dabf7',
+      blackKeyNote: '#ff9800',
+      timingLine: '#ffd700',
+      noteTrail: 'rgba(77, 171, 247, 0.3)',
+      chord: '#9c27b0'
     },
     dark: {
       background: '#1a1a1a',
@@ -29,9 +36,33 @@ export class UIRenderer {
       success: '#51cf66',
       error: '#ff6b6b',
       note: '#4dabf7',
-      noteHit: '#51cf66'
+      noteHit: '#51cf66',
+      whiteKey: '#f5f5f5',
+      blackKey: '#2a2a2a',
+      whiteKeyNote: '#4dabf7',
+      blackKeyNote: '#ff9800',
+      timingLine: '#ffd700',
+      noteTrail: 'rgba(77, 171, 247, 0.3)',
+      chord: '#9c27b0'
     }
   };
+
+  // 鍵盤レイアウト設定
+  private readonly keyboardLayout = {
+    whiteKeys: [0, 2, 4, 5, 7, 9, 11], // C, D, E, F, G, A, B
+    blackKeys: [1, 3, 6, 8, 10], // C#, D#, F#, G#, A#
+    octaveRange: { min: 3, max: 6 }, // C3 to B6
+    whiteKeyWidth: 0,
+    blackKeyWidth: 0,
+    whiteKeyHeight: 0,
+    blackKeyHeight: 0
+  };
+
+  // ノート状態管理
+  private noteStates = new Map<string, 'pending' | 'hit' | 'missed'>();
+  
+  // 現在押されている鍵盤の追跡
+  private pressedKeys = new Set<number>();
 
   /**
    * Canvasエレメントを初期化し、描画コンテキストを取得
@@ -66,6 +97,30 @@ export class UIRenderer {
     if (this.ctx) {
       this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
+    
+    // 鍵盤レイアウトを再計算
+    this.calculateKeyboardLayout();
+  }
+
+  /**
+   * 鍵盤レイアウトを計算
+   */
+  private calculateKeyboardLayout(): void {
+    if (!this.canvas) return;
+    
+    const width = this.canvas.width / window.devicePixelRatio;
+    const height = this.canvas.height / window.devicePixelRatio;
+    
+    // 鍵盤エリアの設定
+    const keyboardHeight = height * 0.2;
+    const totalOctaves = this.keyboardLayout.octaveRange.max - this.keyboardLayout.octaveRange.min + 1;
+    const whiteKeysPerOctave = 7;
+    const totalWhiteKeys = totalOctaves * whiteKeysPerOctave;
+    
+    this.keyboardLayout.whiteKeyWidth = width / totalWhiteKeys;
+    this.keyboardLayout.blackKeyWidth = this.keyboardLayout.whiteKeyWidth * 0.6;
+    this.keyboardLayout.whiteKeyHeight = keyboardHeight;
+    this.keyboardLayout.blackKeyHeight = keyboardHeight * 0.6;
   }
 
   /**
@@ -155,7 +210,6 @@ export class UIRenderer {
   private drawNotes(notes: Note[], currentTime: number): void {
     if (!this.ctx || !this.canvas) return;
     
-    const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
     
@@ -163,46 +217,222 @@ export class UIRenderer {
     const keyboardHeight = height * 0.2;
     const noteAreaHeight = height - keyboardHeight;
     
-    notes.forEach(note => {
-      // ノートの表示タイミングを計算（2秒前から表示開始）
-      const showTime = note.startTime - 2000;
-      const hideTime = note.startTime + note.duration;
-      
-      if (currentTime >= showTime && currentTime <= hideTime) {
-        // ノートの垂直位置を計算（時間に基づいて落下）
-        const progress = (currentTime - showTime) / (note.startTime - showTime);
-        const y = progress * noteAreaHeight;
-        
-        // ノートの水平位置を計算（音程に基づいて配置）
-        const x = this.getNoteXPosition(note.pitch, width);
-        
-        // ノートを描画
-        this.drawNote(x, y, note, currentTime >= note.startTime);
+    // タイミングラインを描画
+    this.drawTimingLine(height - keyboardHeight);
+    
+    // ノートをグループ化（コード検出）
+    const noteGroups = this.groupNotesByTiming(notes, currentTime);
+    
+    noteGroups.forEach(group => {
+      if (group.notes.length > 1) {
+        // コード（和音）として描画
+        this.drawChord(group.notes, group.timing, currentTime, noteAreaHeight);
+      } else if (group.notes.length === 1 && group.notes[0]) {
+        // 単音として描画
+        this.drawSingleNote(group.notes[0], currentTime, noteAreaHeight);
       }
     });
   }
 
   /**
+   * タイミングラインを描画
+   */
+  private drawTimingLine(y: number): void {
+    if (!this.ctx || !this.canvas) return;
+    
+    const currentColors = this.colors[this.theme];
+    const width = this.canvas.width / window.devicePixelRatio;
+    
+    this.ctx.strokeStyle = currentColors.timingLine;
+    this.ctx.lineWidth = 3;
+    this.ctx.setLineDash([10, 5]);
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, y);
+    this.ctx.lineTo(width, y);
+    this.ctx.stroke();
+    
+    this.ctx.setLineDash([]); // リセット
+  }
+
+  /**
+   * ノートをタイミングでグループ化
+   */
+  private groupNotesByTiming(notes: Note[], currentTime: number): Array<{notes: Note[], timing: number}> {
+    const groups = new Map<number, Note[]>();
+    const tolerance = 50; // 50ms以内は同じタイミングとみなす
+    
+    notes.forEach(note => {
+      // 表示範囲内のノートのみ処理
+      const showTime = note.startTime - 2000;
+      const hideTime = note.startTime + note.duration;
+      
+      if (currentTime >= showTime && currentTime <= hideTime) {
+        let foundGroup = false;
+        
+        for (const [timing, groupNotes] of groups) {
+          if (Math.abs(note.startTime - timing) <= tolerance) {
+            groupNotes.push(note);
+            foundGroup = true;
+            break;
+          }
+        }
+        
+        if (!foundGroup) {
+          groups.set(note.startTime, [note]);
+        }
+      }
+    });
+    
+    return Array.from(groups.entries()).map(([timing, notes]) => ({
+      notes,
+      timing
+    }));
+  }
+
+  /**
+   * 単音ノートを描画
+   */
+  private drawSingleNote(note: Note, currentTime: number, noteAreaHeight: number): void {
+    if (!this.ctx || !this.canvas) return;
+    
+    const width = this.canvas.width / window.devicePixelRatio;
+    
+    // ノートの表示タイミングを計算
+    const showTime = note.startTime - 2000;
+    const progress = Math.max(0, Math.min(1, (currentTime - showTime) / 2000));
+    const y = progress * noteAreaHeight;
+    
+    // ノートの水平位置を計算
+    const x = this.getPreciseNoteXPosition(note.pitch, width);
+    
+    // ノートの状態を取得
+    const noteId = `${note.pitch}-${note.startTime}`;
+    const state = this.noteStates.get(noteId) || 'pending';
+    
+    // ノートトレイルを描画
+    this.drawNoteTrail(x, y, progress);
+    
+    // ノートを描画
+    this.drawNote(x, y, note, state, currentTime >= note.startTime);
+  }
+
+  /**
+   * コード（和音）を描画
+   */
+  private drawChord(notes: Note[], timing: number, currentTime: number, noteAreaHeight: number): void {
+    if (!this.ctx || !this.canvas) return;
+    
+    const width = this.canvas.width / window.devicePixelRatio;
+    const currentColors = this.colors[this.theme];
+    
+    // コードの表示タイミングを計算
+    const showTime = timing - 2000;
+    const progress = Math.max(0, Math.min(1, (currentTime - showTime) / 2000));
+    const y = progress * noteAreaHeight;
+    
+    // コードの範囲を計算
+    const positions = notes.map(note => this.getPreciseNoteXPosition(note.pitch, width));
+    const minX = Math.min(...positions);
+    const maxX = Math.max(...positions);
+    
+    // コード背景を描画
+    this.ctx.fillStyle = currentColors.chord + '20'; // 透明度20%
+    this.ctx.fillRect(minX - 10, y - 5, maxX - minX + 20, 30);
+    
+    // 個別のノートを描画
+    notes.forEach(note => {
+      const x = this.getPreciseNoteXPosition(note.pitch, width);
+      const noteId = `${note.pitch}-${note.startTime}`;
+      const state = this.noteStates.get(noteId) || 'pending';
+      
+      this.drawNote(x, y, note, state, currentTime >= timing);
+    });
+    
+    // コード名を表示
+    if (notes.length >= 3) {
+      const chordName = this.getChordName(notes);
+      this.ctx.fillStyle = currentColors.chord;
+      this.ctx.font = '14px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(chordName, (minX + maxX) / 2, y - 10);
+    }
+  }
+
+  /**
+   * ノートトレイルを描画
+   */
+  private drawNoteTrail(x: number, y: number, progress: number): void {
+    if (!this.ctx || progress <= 0) return;
+    
+    const currentColors = this.colors[this.theme];
+    const trailLength = 50;
+    
+    this.ctx.strokeStyle = currentColors.noteTrail;
+    this.ctx.lineWidth = 2;
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, Math.max(0, y - trailLength));
+    this.ctx.lineTo(x, y);
+    this.ctx.stroke();
+  }
+
+  /**
    * 単一のノートを描画
    */
-  private drawNote(x: number, y: number, note: Note, isActive: boolean): void {
+  private drawNote(x: number, y: number, note: Note, state: 'pending' | 'hit' | 'missed', isActive: boolean): void {
     if (!this.ctx) return;
     
     const currentColors = this.colors[this.theme];
-    const noteWidth = 40;
-    const noteHeight = 20;
+    const isBlackKey = this.isBlackKey(note.pitch);
     
-    // ノートの色を決定
-    this.ctx.fillStyle = isActive ? currentColors.noteHit : currentColors.note;
+    // ノートサイズを鍵盤タイプに応じて調整
+    const noteWidth = isBlackKey ? this.keyboardLayout.blackKeyWidth * 0.8 : this.keyboardLayout.whiteKeyWidth * 0.8;
+    const noteHeight = 25;
     
-    // ノートを矩形で描画
-    this.drawRoundedRect(x - noteWidth / 2, y, noteWidth, noteHeight, 5);
+    // ノートの色を状態に応じて決定
+    let noteColor: string;
+    switch (state) {
+      case 'hit':
+        noteColor = currentColors.success;
+        break;
+      case 'missed':
+        noteColor = currentColors.error;
+        break;
+      default:
+        noteColor = isBlackKey ? currentColors.blackKeyNote : currentColors.whiteKeyNote;
+    }
+    
+    // アクティブ状態の場合は光らせる
+    if (isActive && state === 'pending') {
+      this.ctx.shadowColor = noteColor;
+      this.ctx.shadowBlur = 10;
+    }
+    
+    this.ctx.fillStyle = noteColor;
+    
+    // ノートを描画（黒鍵は少し小さく）
+    if (isBlackKey) {
+      this.drawRoundedRect(x - noteWidth / 2, y, noteWidth, noteHeight, 3);
+    } else {
+      this.drawRoundedRect(x - noteWidth / 2, y, noteWidth, noteHeight, 5);
+    }
+    
+    // 影をリセット
+    this.ctx.shadowBlur = 0;
     
     // ノート名を表示
-    this.ctx.fillStyle = currentColors.background;
-    this.ctx.font = '12px Arial';
+    this.ctx.fillStyle = this.getContrastColor(noteColor);
+    this.ctx.font = isBlackKey ? '10px Arial' : '12px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText(this.midiNoteToName(note.pitch), x, y + 14);
+    this.ctx.fillText(this.midiNoteToName(note.pitch), x, y + 15);
+    
+    // ベロシティインジケーター
+    if (note.velocity && note.velocity < 127) {
+      const velocityHeight = (note.velocity / 127) * 3;
+      this.ctx.fillStyle = currentColors.accent;
+      this.ctx.fillRect(x - noteWidth / 2 - 2, y + noteHeight - velocityHeight, 2, velocityHeight);
+    }
   }
 
   /**
@@ -219,20 +449,103 @@ export class UIRenderer {
     const keyboardHeight = height * 0.2;
     const keyboardY = height - keyboardHeight;
     
-    // 鍵盤背景
-    this.ctx.fillStyle = currentColors.secondary;
-    this.ctx.fillRect(0, keyboardY, width, keyboardHeight);
+    // 白鍵を先に描画
+    this.drawWhiteKeys(keyboardY, keyboardHeight);
     
-    // 鍵盤の線を描画（オクターブごとに区切り）
+    // 黒鍵を後に描画（白鍵の上に重ねる）
+    this.drawBlackKeys(keyboardY, keyboardHeight);
+    
+    // 鍵盤の境界線
     this.ctx.strokeStyle = currentColors.primary;
-    this.ctx.lineWidth = 1;
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(0, keyboardY, width, keyboardHeight);
+  }
+
+  /**
+   * 白鍵を描画
+   */
+  private drawWhiteKeys(keyboardY: number, keyboardHeight: number): void {
+    if (!this.ctx || !this.canvas) return;
     
-    for (let i = 0; i <= 12; i++) {
-      const x = (width / 12) * i;
-      this.ctx.beginPath();
-      this.ctx.moveTo(x, keyboardY);
-      this.ctx.lineTo(x, height);
-      this.ctx.stroke();
+    const currentColors = this.colors[this.theme];
+    const width = this.canvas.width / window.devicePixelRatio;
+    
+    let whiteKeyIndex = 0;
+    
+    for (let octave = this.keyboardLayout.octaveRange.min; octave <= this.keyboardLayout.octaveRange.max; octave++) {
+      this.keyboardLayout.whiteKeys.forEach(noteInOctave => {
+        const midiNote = octave * 12 + noteInOctave;
+        const x = whiteKeyIndex * this.keyboardLayout.whiteKeyWidth;
+        
+        // 白鍵を描画（押されている場合はハイライト）
+        const isPressed = this.pressedKeys.has(midiNote);
+        this.ctx!.fillStyle = isPressed ? currentColors.accent : currentColors.whiteKey;
+        this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
+        
+        // 境界線
+        this.ctx!.strokeStyle = isPressed ? currentColors.primary : currentColors.secondary;
+        this.ctx!.lineWidth = isPressed ? 2 : 1;
+        this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
+        
+        // ノート名を表示（黒色で見やすく）
+        this.ctx!.fillStyle = '#000000';
+        this.ctx!.font = 'bold 11px Arial';
+        this.ctx!.textAlign = 'center';
+        this.ctx!.fillText(
+          this.midiNoteToName(midiNote),
+          x + this.keyboardLayout.whiteKeyWidth / 2,
+          keyboardY + keyboardHeight - 8
+        );
+        
+        whiteKeyIndex++;
+      });
+    }
+  }
+
+  /**
+   * 黒鍵を描画
+   */
+  private drawBlackKeys(keyboardY: number, keyboardHeight: number): void {
+    if (!this.ctx || !this.canvas) return;
+    
+    const currentColors = this.colors[this.theme];
+    
+    for (let octave = this.keyboardLayout.octaveRange.min; octave <= this.keyboardLayout.octaveRange.max; octave++) {
+      // 黒鍵の配置パターン：C# D# _ F# G# A#
+      // 白鍵の境界（右端）に配置するように調整
+      const blackKeyPattern = [
+        { note: 1, position: 1.0 },   // C# (Cの右端、Dの左端)
+        { note: 3, position: 2.0 },   // D# (Dの右端、Eの左端)
+        { note: 6, position: 4.0 },   // F# (Fの右端、Gの左端)
+        { note: 8, position: 5.0 },   // G# (Gの右端、Aの左端)
+        { note: 10, position: 6.0 }   // A# (Aの右端、Bの左端)
+      ];
+      
+      blackKeyPattern.forEach(({ note, position }) => {
+        const midiNote = octave * 12 + note;
+        const octaveOffset = octave - this.keyboardLayout.octaveRange.min;
+        const x = (octaveOffset * 7 + position) * this.keyboardLayout.whiteKeyWidth - this.keyboardLayout.blackKeyWidth / 2;
+        
+        // 黒鍵を描画（押されている場合はハイライト）
+        const isPressed = this.pressedKeys.has(midiNote);
+        this.ctx!.fillStyle = isPressed ? currentColors.accent : currentColors.blackKey;
+        this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
+        
+        // 境界線
+        this.ctx!.strokeStyle = currentColors.primary;
+        this.ctx!.lineWidth = isPressed ? 3 : 1;
+        this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
+        
+        // ノート名を表示（白色で見やすく）
+        this.ctx!.fillStyle = '#ffffff';
+        this.ctx!.font = 'bold 9px Arial';
+        this.ctx!.textAlign = 'center';
+        this.ctx!.fillText(
+          this.midiNoteToName(midiNote),
+          x + this.keyboardLayout.blackKeyWidth / 2,
+          keyboardY + this.keyboardLayout.blackKeyHeight - 6
+        );
+      });
     }
   }
 
@@ -246,8 +559,12 @@ export class UIRenderer {
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
     
-    const x = this.getNoteXPosition(note.pitch, width);
+    const x = this.getPreciseNoteXPosition(note.pitch, width);
     const y = height - (height * 0.1); // 鍵盤エリアの上部
+    
+    // ノート状態を更新
+    const noteId = `${note.pitch}-${note.startTime}`;
+    this.noteStates.set(noteId, result.isCorrect ? 'hit' : 'missed');
     
     // 結果に応じた色を選択
     let color: string;
@@ -265,19 +582,91 @@ export class UIRenderer {
         color = currentColors.secondary;
     }
     
-    // エフェクト円を描画
+    // エフェクト円を描画（サイズを調整）
+    const effectSize = result.feedback === 'perfect' ? 40 : result.feedback === 'good' ? 30 : 25;
+    
     this.ctx.fillStyle = color;
-    this.ctx.globalAlpha = 0.7;
+    this.ctx.globalAlpha = 0.8;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, 30, 0, Math.PI * 2);
+    this.ctx.arc(x, y, effectSize, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.globalAlpha = 1.0;
     
     // フィードバックテキストを表示
-    this.ctx.fillStyle = currentColors.background;
-    this.ctx.font = '14px Arial';
+    this.ctx.fillStyle = this.getContrastColor(color);
+    this.ctx.font = 'bold 16px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(result.feedback.toUpperCase(), x, y + 5);
+    
+    // スコアを表示
+    if (result.points > 0) {
+      this.ctx.fillStyle = currentColors.success;
+      this.ctx.font = '12px Arial';
+      this.ctx.fillText(`+${result.points}`, x, y - 25);
+    }
+    
+    // エフェクトを一定時間後にフェードアウト
+    setTimeout(() => {
+      this.fadeOutEffect(x, y, color, effectSize);
+    }, 500);
+  }
+
+  /**
+   * エフェクトのフェードアウト
+   */
+  private fadeOutEffect(x: number, y: number, color: string, size: number): void {
+    if (!this.ctx) return;
+    
+    let alpha = 0.8;
+    const fadeInterval = setInterval(() => {
+      if (alpha <= 0) {
+        clearInterval(fadeInterval);
+        return;
+      }
+      
+      // 前のエフェクトをクリア（簡易版）
+      this.ctx!.globalAlpha = alpha;
+      this.ctx!.fillStyle = color;
+      this.ctx!.beginPath();
+      this.ctx!.arc(x, y, size * (1 + (0.8 - alpha)), 0, Math.PI * 2);
+      this.ctx!.fill();
+      this.ctx!.globalAlpha = 1.0;
+      
+      alpha -= 0.1;
+    }, 50);
+  }
+
+  /**
+   * ノート状態をクリア
+   */
+  clearNoteStates(): void {
+    this.noteStates.clear();
+  }
+
+  /**
+   * 特定のノートの状態を設定
+   */
+  setNoteState(note: Note, state: 'pending' | 'hit' | 'missed'): void {
+    const noteId = `${note.pitch}-${note.startTime}`;
+    this.noteStates.set(noteId, state);
+  }
+
+  /**
+   * 鍵盤が押されたことを記録
+   */
+  setKeyPressed(pitch: number, pressed: boolean): void {
+    if (pressed) {
+      this.pressedKeys.add(pitch);
+    } else {
+      this.pressedKeys.delete(pitch);
+    }
+  }
+
+  /**
+   * すべての鍵盤の押下状態をクリア
+   */
+  clearPressedKeys(): void {
+    this.pressedKeys.clear();
   }
 
   /**
@@ -350,15 +739,101 @@ export class UIRenderer {
   }
 
   /**
-   * ユーティリティ: 音程に基づいてノートのX座標を計算
+   * ユーティリティ: 音程に基づいてノートのX座標を計算（精密版）
+   */
+  private getPreciseNoteXPosition(pitch: number, canvasWidth: number): number {
+    const octave = Math.floor(pitch / 12);
+    const noteInOctave = pitch % 12;
+    
+    // 表示範囲内かチェック
+    if (octave < this.keyboardLayout.octaveRange.min || octave > this.keyboardLayout.octaveRange.max) {
+      return -1; // 表示範囲外
+    }
+    
+    const octaveOffset = octave - this.keyboardLayout.octaveRange.min;
+    
+    if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
+      // 白鍵の場合
+      const whiteKeyIndex = this.keyboardLayout.whiteKeys.indexOf(noteInOctave);
+      const totalWhiteKeyIndex = octaveOffset * 7 + whiteKeyIndex;
+      return totalWhiteKeyIndex * this.keyboardLayout.whiteKeyWidth + this.keyboardLayout.whiteKeyWidth / 2;
+    } else {
+      // 黒鍵の場合 - より正確な位置計算
+      const blackKeyPositions: { [key: number]: number } = {
+        1: 1.0,   // C# (Cの右端、Dの左端)
+        3: 2.0,   // D# (Dの右端、Eの左端)
+        6: 4.0,   // F# (Fの右端、Gの左端)
+        8: 5.0,   // G# (Gの右端、Aの左端)
+        10: 6.0   // A# (Aの右端、Bの左端)
+      };
+      
+      const position = blackKeyPositions[noteInOctave];
+      if (position !== undefined) {
+        return (octaveOffset * 7 + position) * this.keyboardLayout.whiteKeyWidth;
+      }
+      
+      // フォールバック
+      return octaveOffset * 7 * this.keyboardLayout.whiteKeyWidth;
+    }
+  }
+
+  /**
+   * ユーティリティ: 音程に基づいてノートのX座標を計算（後方互換性）
    */
   private getNoteXPosition(pitch: number, canvasWidth: number): number {
-    // C4 (MIDI 60) を基準として、オクターブ内での位置を計算
+    return this.getPreciseNoteXPosition(pitch, canvasWidth);
+  }
+
+  /**
+   * ユーティリティ: 黒鍵かどうかを判定
+   */
+  private isBlackKey(pitch: number): boolean {
     const noteInOctave = pitch % 12;
-    const octaveWidth = canvasWidth / 2; // 2オクターブ分を表示
-    const noteWidth = octaveWidth / 12;
+    return this.keyboardLayout.blackKeys.includes(noteInOctave);
+  }
+
+  /**
+   * ユーティリティ: コントラスト色を取得
+   */
+  private getContrastColor(backgroundColor: string): string {
+    // 簡易的な実装：背景色に応じて白または黒を返す
+    if (backgroundColor.includes('#ff') || backgroundColor.includes('#f') || backgroundColor.includes('white')) {
+      return '#000000';
+    }
+    return '#ffffff';
+  }
+
+  /**
+   * ユーティリティ: コード名を取得
+   */
+  private getChordName(notes: Note[]): string {
+    if (notes.length < 3) return '';
     
-    return (canvasWidth / 4) + (noteInOctave * noteWidth) + (noteWidth / 2);
+    // 簡易的なコード判定（基本的な三和音のみ）
+    const pitches = notes.map(note => note.pitch % 12).sort((a, b) => a - b);
+    const intervals = [];
+    
+    for (let i = 1; i < pitches.length; i++) {
+      const currentPitch = pitches[i];
+      const rootPitch = pitches[0];
+      if (currentPitch !== undefined && rootPitch !== undefined) {
+        intervals.push(currentPitch - rootPitch);
+      }
+    }
+    
+    // 基本的なコードパターンを判定
+    const intervalString = intervals.join(',');
+    const firstNote = notes[0];
+    if (!firstNote) return '';
+    const rootNote = this.midiNoteToName(firstNote.pitch).replace(/\d+/, '');
+    
+    switch (intervalString) {
+      case '4,7': return rootNote + 'maj';
+      case '3,7': return rootNote + 'min';
+      case '4,7,10': return rootNote + '7';
+      case '3,7,10': return rootNote + 'm7';
+      default: return rootNote + '?';
+    }
   }
 
   /**

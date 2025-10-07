@@ -276,6 +276,9 @@ export class PianoPracticeApp {
   private handleNoteOn(note: number, velocity: number, toneTime: number): void {
     console.log(`Note ON received: ${note} (${this.midiManager.convertNoteToNoteName(note)}), velocity: ${velocity}`);
 
+    // 鍵盤のハイライトを開始
+    this.uiRenderer.setKeyPressed(note, true);
+
     // TODO: GameEngineの実装後に演奏評価処理を追加
     // const result = this.gameEngine.processNoteInput(note, toneTime);
 
@@ -305,8 +308,10 @@ export class PianoPracticeApp {
   private handleNoteOff(note: number, toneTime: number): void {
     console.log(`Note OFF received: ${note} (${this.midiManager.convertNoteToNoteName(note)})`);
 
+    // 鍵盤のハイライトを終了
+    this.uiRenderer.setKeyPressed(note, false);
+
     // TODO: 必要に応じてNote Offの処理を追加
-    // 現在は特別な処理は不要
   }
 
   /**
@@ -314,6 +319,15 @@ export class PianoPracticeApp {
    */
   private startRenderLoop(): void {
     const render = () => {
+      // ゲームが再生中の場合、時間を進める
+      if (this.currentGameState.isPlaying) {
+        this.currentGameState.currentTime = Date.now();
+
+        // 小節の計算（仮：4秒で1小節）
+        const measureDuration = 4000; // 4秒
+        this.currentGameState.currentMeasure = Math.floor((this.currentGameState.currentTime - (this.currentGameState.currentTime % measureDuration)) / measureDuration) + 1;
+      }
+
       // UIRendererで画面を描画
       this.uiRenderer.render(this.currentGameState, this.currentNotes);
 
@@ -359,7 +373,6 @@ export class PianoPracticeApp {
     const note = keyToNote[event.key.toLowerCase()];
     if (note !== undefined && !event.repeat) {
       console.log(`=== KEYBOARD NOTE: ${event.key} -> Note ${note} ===`);
-      alert(`キーボード入力: ${event.key} -> 音符 ${note}`);
       this.handleNoteOn(note, 100, 0); // velocity 100, toneTime 0 for keyboard input
 
       // キーボード入力の場合は短時間後にNote Offを送信
@@ -375,29 +388,87 @@ export class PianoPracticeApp {
   private loadSampleNotes(): void {
     const now = Date.now();
     this.currentNotes = [
+      // 単音のメロディー
       {
         pitch: 60, // C4
-        startTime: now + 2000,
-        duration: 500,
-        velocity: 80
-      },
-      {
-        pitch: 62, // D4
         startTime: now + 3000,
         duration: 500,
         velocity: 80
       },
       {
-        pitch: 64, // E4
+        pitch: 62, // D4
         startTime: now + 4000,
         duration: 500,
-        velocity: 80
+        velocity: 90
+      },
+      {
+        pitch: 64, // E4
+        startTime: now + 5000,
+        duration: 500,
+        velocity: 85
       },
       {
         pitch: 65, // F4
-        startTime: now + 5000,
+        startTime: now + 6000,
         duration: 500,
+        velocity: 75
+      },
+      // コード（和音）のテスト
+      {
+        pitch: 60, // C4
+        startTime: now + 8000,
+        duration: 1000,
         velocity: 80
+      },
+      {
+        pitch: 64, // E4
+        startTime: now + 8000,
+        duration: 1000,
+        velocity: 80
+      },
+      {
+        pitch: 67, // G4
+        startTime: now + 8000,
+        duration: 1000,
+        velocity: 80
+      },
+      // 黒鍵のテスト
+      {
+        pitch: 61, // C#4
+        startTime: now + 10000,
+        duration: 500,
+        velocity: 70
+      },
+      {
+        pitch: 63, // D#4
+        startTime: now + 11000,
+        duration: 500,
+        velocity: 70
+      },
+      // より複雑なコード
+      {
+        pitch: 57, // A3
+        startTime: now + 13000,
+        duration: 1500,
+        velocity: 85
+      },
+      {
+        pitch: 60, // C4
+        startTime: now + 13000,
+        duration: 1500,
+        velocity: 85
+      },
+      {
+        pitch: 64, // E4
+        startTime: now + 13000,
+        duration: 1500,
+        velocity: 85
+      },
+      {
+        pitch: 67, // G4
+        startTime: now + 13000,
+        duration: 1500,
+        velocity: 85
       }
     ];
 
