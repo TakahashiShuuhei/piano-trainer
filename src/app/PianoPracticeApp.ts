@@ -1,23 +1,38 @@
 import {
   GameEngine,
   MIDIInputManager as IMIDIInputManager,
-  UIRenderer,
+  UIRenderer as IUIRenderer,
   ContentManager,
   MetronomeService,
   GameState,
-  PracticeContent
+  PracticeContent,
+  Note,
+  ScoreResult
 } from '../types/index.js';
 import { MIDIInputManager } from '../components/MIDIInputManager.js';
+import { UIRenderer } from '../components/UIRenderer.js';
 
 export class PianoPracticeApp {
   private gameEngine!: GameEngine;
   private midiManager!: IMIDIInputManager;
-  private uiRenderer!: UIRenderer;
+  private uiRenderer!: IUIRenderer;
   private contentManager!: ContentManager;
   private metronome!: MetronomeService;
 
   private canvas!: HTMLCanvasElement;
   private isInitialized = false;
+
+  // 現在のゲーム状態（UIRenderer統合用）
+  private currentGameState: GameState = {
+    isPlaying: false,
+    currentTime: 0,
+    score: 0,
+    accuracy: 1.0,
+    currentMeasure: 1
+  };
+
+  // 現在表示中のノート（UIRenderer統合用）
+  private currentNotes: Note[] = [];
 
   constructor() {
     // コンストラクタは軽量に保つ
@@ -25,35 +40,23 @@ export class PianoPracticeApp {
 
   public async initialize(): Promise<void> {
     try {
-      console.log('Piano Practice App initializing...');
-
       // DOM要素の取得
-      console.log('Step 1: Setting up DOM elements...');
       this.setupDOMElements();
-      console.log('Step 1: DOM elements setup complete');
 
-      // コンポーネントの初期化（後で実装）
-      console.log('Step 2: Initializing components...');
+      // コンポーネントの初期化
       await this.initializeComponents();
-      console.log('Step 2: Components initialization complete');
 
       // イベントリスナーの設定
-      console.log('Step 3: Setting up event listeners...');
       this.setupEventListeners();
-      console.log('Step 3: Event listeners setup complete');
 
       // 初期コンテンツの読み込み
-      console.log('Step 4: Loading initial content...');
       this.loadInitialContent();
-      console.log('Step 4: Initial content loading complete');
 
       this.isInitialized = true;
-      console.log('Piano Practice App initialized successfully');
+      console.log('Piano Practice App ready');
 
     } catch (error) {
       console.error('Failed to initialize app:', error);
-      console.error('Error details:', error);
-      alert(`初期化エラー: ${error}`);
       this.showError('アプリケーションの初期化に失敗しました。');
     }
   }
@@ -67,15 +70,15 @@ export class PianoPracticeApp {
 
   private async initializeComponents(): Promise<void> {
     try {
-      console.log('=== INITIALIZING COMPONENTS ===');
+      // UIRendererの初期化
+      this.uiRenderer = new UIRenderer();
+      this.uiRenderer.initCanvas(this.canvas);
+      this.uiRenderer.setTheme('dark'); // デフォルトテーマ
 
       // MIDIInputManagerの初期化
-      console.log('Creating MIDIInputManager...');
       this.midiManager = new MIDIInputManager();
-      console.log('MIDIInputManager created successfully');
 
       // MIDI入力イベントのリスナーを設定
-      console.log('Setting up MIDI event listeners...');
       this.midiManager.onNoteOn((note, velocity, toneTime) => {
         this.handleNoteOn(note, velocity, toneTime);
       });
@@ -84,11 +87,12 @@ export class PianoPracticeApp {
         this.handleNoteOff(note, toneTime);
       });
 
-      console.log('MIDI Input Manager initialized successfully');
+      // 描画ループを開始
+      this.startRenderLoop();
 
       // TODO: 他のコンポーネントの実装後に初期化処理を追加
     } catch (error) {
-      console.error('=== COMPONENT INITIALIZATION FAILED ===', error);
+      console.error('Component initialization failed:', error);
       throw error;
     }
   }
@@ -183,24 +187,52 @@ export class PianoPracticeApp {
   private handleStart(): void {
     if (!this.isInitialized) return;
     console.log('Starting practice session...');
+
+    // ゲーム状態を開始に変更
+    this.currentGameState.isPlaying = true;
+    this.currentGameState.currentTime = 0;
+
+    // サンプルノートを追加（テスト用）
+    this.loadSampleNotes();
+
+    this.updateGameStateDisplay();
+
     // TODO: GameEngineの実装後に開始処理を追加
   }
 
   private handlePause(): void {
     if (!this.isInitialized) return;
     console.log('Pausing practice session...');
+
+    // ゲーム状態を一時停止に変更
+    this.currentGameState.isPlaying = false;
+    this.updateGameStateDisplay();
+
     // TODO: GameEngineの実装後に一時停止処理を追加
   }
 
   private handleStop(): void {
     if (!this.isInitialized) return;
     console.log('Stopping practice session...');
+
+    // ゲーム状態をリセット
+    this.currentGameState.isPlaying = false;
+    this.currentGameState.currentTime = 0;
+    this.currentGameState.score = 0;
+    this.currentGameState.accuracy = 1.0;
+    this.currentGameState.currentMeasure = 1;
+
+    // ノートをクリア
+    this.currentNotes = [];
+
+    this.updateGameStateDisplay();
+
     // TODO: GameEngineの実装後に停止処理を追加
   }
 
   private handleResize(): void {
-    // TODO: UIRendererの実装後にリサイズ処理を追加
-    console.log('Window resized');
+    // UIRendererは自動的にリサイズを処理するため、特別な処理は不要
+    console.log('Window resized - UIRenderer will handle canvas resize automatically');
   }
 
   private updateMidiStatus(connected: boolean): void {
@@ -247,35 +279,61 @@ export class PianoPracticeApp {
     // TODO: GameEngineの実装後に演奏評価処理を追加
     // const result = this.gameEngine.processNoteInput(note, toneTime);
 
-    // 視覚的フィードバック（簡易版）
-    this.showNoteHit(note, velocity);
+    // 仮のスコア結果を作成（GameEngine実装まで）
+    const mockResult: ScoreResult = {
+      isCorrect: true,
+      timingAccuracy: 0.9,
+      points: 100,
+      feedback: 'perfect'
+    };
+
+    // UIRendererで視覚的フィードバックを表示
+    const noteObj: Note = {
+      pitch: note,
+      startTime: Date.now(),
+      duration: 500,
+      velocity: velocity
+    };
+
+    this.uiRenderer.showNoteHit(noteObj, mockResult);
+
+    // スコアを更新（仮）
+    this.currentGameState.score += mockResult.points;
+    this.updateGameStateDisplay();
   }
 
   private handleNoteOff(note: number, toneTime: number): void {
     console.log(`Note OFF received: ${note} (${this.midiManager.convertNoteToNoteName(note)})`);
 
     // TODO: 必要に応じてNote Offの処理を追加
+    // 現在は特別な処理は不要
   }
 
-  private showNoteHit(note: number, velocity: number): void {
-    // 簡易的な視覚フィードバック
-    const canvas = this.canvas;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      // 画面上部に音符名を表示
-      ctx.fillStyle = `rgba(76, 175, 80, ${velocity / 127})`;
-      ctx.font = '24px Arial';
-      ctx.fillText(
-        this.midiManager.convertNoteToNoteName(note),
-        Math.random() * (canvas.width - 100) + 50,
-        50
-      );
+  /**
+   * 描画ループを開始
+   */
+  private startRenderLoop(): void {
+    const render = () => {
+      // UIRendererで画面を描画
+      this.uiRenderer.render(this.currentGameState, this.currentNotes);
 
-      // 一定時間後にクリア（簡易版）
-      setTimeout(() => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }, 1000);
-    }
+      // 次のフレームをリクエスト
+      requestAnimationFrame(render);
+    };
+
+    requestAnimationFrame(render);
+    console.log('Render loop started');
+  }
+
+  /**
+   * ゲーム状態表示を更新
+   */
+  private updateGameStateDisplay(): void {
+    // DOM要素の更新
+    this.updateGameState(this.currentGameState);
+
+    // UIRendererのスコア表示も更新
+    this.uiRenderer.updateScore(this.currentGameState.score, this.currentGameState.accuracy);
   }
 
   private handleKeyboardInput(event: KeyboardEvent): void {
@@ -311,6 +369,41 @@ export class PianoPracticeApp {
     }
   }
 
+  /**
+   * テスト用のサンプルノートを読み込み
+   */
+  private loadSampleNotes(): void {
+    const now = Date.now();
+    this.currentNotes = [
+      {
+        pitch: 60, // C4
+        startTime: now + 2000,
+        duration: 500,
+        velocity: 80
+      },
+      {
+        pitch: 62, // D4
+        startTime: now + 3000,
+        duration: 500,
+        velocity: 80
+      },
+      {
+        pitch: 64, // E4
+        startTime: now + 4000,
+        duration: 500,
+        velocity: 80
+      },
+      {
+        pitch: 65, // F4
+        startTime: now + 5000,
+        duration: 500,
+        velocity: 80
+      }
+    ];
+
+    console.log('Sample notes loaded:', this.currentNotes.length);
+  }
+
   private showError(message: string): void {
     const errorElement = document.getElementById('errorMessage');
     if (errorElement) {
@@ -320,5 +413,20 @@ export class PianoPracticeApp {
         errorElement.style.display = 'none';
       }, 5000);
     }
+  }
+
+  /**
+   * リソースのクリーンアップ
+   */
+  public destroy(): void {
+    if (this.uiRenderer) {
+      this.uiRenderer.destroy();
+    }
+
+    if (this.midiManager) {
+      this.midiManager.disconnect();
+    }
+
+    console.log('PianoPracticeApp destroyed');
   }
 }
