@@ -54,7 +54,6 @@ export interface GameState {
   currentTime: number;
   score: number;
   accuracy: number;
-  currentMeasure: number;
 }
 
 // Component interfaces
@@ -98,6 +97,9 @@ export interface UIRenderer {
   setTheme(theme: 'light' | 'dark'): void;
   startAnimationLoop(): void;
   stopAnimationLoop(): void;
+  setKeyPressed(pitch: number, pressed: boolean): void;
+  clearPressedKeys(): void;
+  destroy(): void;
 }
 
 export interface ContentManager {

@@ -7,10 +7,13 @@ import {
   GameState,
   PracticeContent,
   Note,
-  ScoreResult
+  ScoreResult,
+  MusicalNote,
+  BeatTimeConverter as IBeatTimeConverter
 } from '../types/index.js';
-import { MIDIInputManager } from '../components/MIDIInputManager.js';
-import { UIRenderer } from '../components/UIRenderer.js';
+import { MIDIInputManager } from '../components/MIDIInputManager';
+import { UIRenderer } from '../components/UIRenderer';
+import { BeatTimeConverter } from '../utils/BeatTimeConverter';
 
 export class PianoPracticeApp {
   private gameEngine!: GameEngine;
@@ -22,16 +25,24 @@ export class PianoPracticeApp {
   private canvas!: HTMLCanvasElement;
   private isInitialized = false;
 
+  // 音楽的タイミングシステム
+  private beatTimeConverter!: IBeatTimeConverter;
+  private currentBPM = 120;
+
+  // ゲーム開始時刻
+  private gameStartTime = 0;
+
   // 現在のゲーム状態（UIRenderer統合用）
   private currentGameState: GameState = {
     isPlaying: false,
-    currentTime: 0,
+    currentTime: 0, // 実時間（ミリ秒）
     score: 0,
-    accuracy: 1.0,
-    currentMeasure: 1
+    accuracy: 1.0
   };
 
-  // 現在表示中のノート（UIRenderer統合用）
+  // 音楽的ノート（拍ベース）
+  private musicalNotes: MusicalNote[] = [];
+  // 現在表示中のノート（時間ベース、UIRenderer用）
   private currentNotes: Note[] = [];
 
   constructor() {
@@ -70,6 +81,9 @@ export class PianoPracticeApp {
 
   private async initializeComponents(): Promise<void> {
     try {
+      // 音楽的タイミングシステムの初期化
+      this.beatTimeConverter = new BeatTimeConverter(this.currentBPM);
+
       // UIRendererの初期化
       this.uiRenderer = new UIRenderer();
       this.uiRenderer.initCanvas(this.canvas);
@@ -136,6 +150,9 @@ export class PianoPracticeApp {
     // キーボード入力のフォールバック（MIDI未接続時用）
     document.addEventListener('keydown', (event) => this.handleKeyboardInput(event));
 
+    // BPM調整コントロール
+    this.setupBPMControls();
+
     console.log('Event listeners setup completed');
   }
 
@@ -188,6 +205,9 @@ export class PianoPracticeApp {
     if (!this.isInitialized) return;
     console.log('Starting practice session...');
 
+    // ゲーム開始時刻を記録
+    this.gameStartTime = Date.now();
+
     // ゲーム状態を開始に変更
     this.currentGameState.isPlaying = true;
     this.currentGameState.currentTime = 0;
@@ -208,6 +228,9 @@ export class PianoPracticeApp {
     this.currentGameState.isPlaying = false;
     this.updateGameStateDisplay();
 
+    // 一時停止時は時間の進行を停止（次回開始時に調整が必要）
+    // TODO: 一時停止からの再開時の時間調整を実装
+
     // TODO: GameEngineの実装後に一時停止処理を追加
   }
 
@@ -220,10 +243,13 @@ export class PianoPracticeApp {
     this.currentGameState.currentTime = 0;
     this.currentGameState.score = 0;
     this.currentGameState.accuracy = 1.0;
-    this.currentGameState.currentMeasure = 1;
+
+    // ゲーム開始時刻をリセット
+    this.gameStartTime = 0;
 
     // ノートをクリア
     this.currentNotes = [];
+    this.musicalNotes = [];
 
     this.updateGameStateDisplay();
 
@@ -320,12 +346,10 @@ export class PianoPracticeApp {
   private startRenderLoop(): void {
     const render = () => {
       // ゲームが再生中の場合、時間を進める
-      if (this.currentGameState.isPlaying) {
-        this.currentGameState.currentTime = Date.now();
-
-        // 小節の計算（仮：4秒で1小節）
-        const measureDuration = 4000; // 4秒
-        this.currentGameState.currentMeasure = Math.floor((this.currentGameState.currentTime - (this.currentGameState.currentTime % measureDuration)) / measureDuration) + 1;
+      if (this.currentGameState.isPlaying && this.gameStartTime > 0) {
+        // 実時間の経過を取得
+        const realTimeElapsed = Date.now() - this.gameStartTime;
+        this.currentGameState.currentTime = realTimeElapsed;
       }
 
       // UIRendererで画面を描画
@@ -383,96 +407,67 @@ export class PianoPracticeApp {
   }
 
   /**
-   * テスト用のサンプルノートを読み込み
+   * テスト用のサンプルノートを読み込み（音楽的タイミングベース）
    */
   private loadSampleNotes(): void {
-    const now = Date.now();
-    this.currentNotes = [
-      // 単音のメロディー
-      {
-        pitch: 60, // C4
-        startTime: now + 3000,
-        duration: 500,
-        velocity: 80
-      },
-      {
-        pitch: 62, // D4
-        startTime: now + 4000,
-        duration: 500,
-        velocity: 90
-      },
-      {
-        pitch: 64, // E4
-        startTime: now + 5000,
-        duration: 500,
-        velocity: 85
-      },
-      {
-        pitch: 65, // F4
-        startTime: now + 6000,
-        duration: 500,
-        velocity: 75
-      },
-      // コード（和音）のテスト
-      {
-        pitch: 60, // C4
-        startTime: now + 8000,
-        duration: 1000,
-        velocity: 80
-      },
-      {
-        pitch: 64, // E4
-        startTime: now + 8000,
-        duration: 1000,
-        velocity: 80
-      },
-      {
-        pitch: 67, // G4
-        startTime: now + 8000,
-        duration: 1000,
-        velocity: 80
-      },
+    // 音楽的ノートを定義（拍ベース）
+    this.musicalNotes = [
+      // 単音のメロディー（4拍子）
+      { pitch: 60, timing: { beat: 0, duration: 1 }, velocity: 80 },    // C4: 0拍目
+      { pitch: 62, timing: { beat: 1, duration: 1 }, velocity: 90 },    // D4: 1拍目
+      { pitch: 64, timing: { beat: 2, duration: 1 }, velocity: 85 },    // E4: 2拍目
+      { pitch: 65, timing: { beat: 3, duration: 1 }, velocity: 75 },    // F4: 3拍目
+
+      // コード（和音）のテスト - Cメジャーコード
+      { pitch: 60, timing: { beat: 4, duration: 2 }, velocity: 80, isChord: true, chordNotes: [64, 67] }, // C4
+      { pitch: 64, timing: { beat: 4, duration: 2 }, velocity: 80, isChord: true },                        // E4
+      { pitch: 67, timing: { beat: 4, duration: 2 }, velocity: 80, isChord: true },                        // G4
+
       // 黒鍵のテスト
-      {
-        pitch: 61, // C#4
-        startTime: now + 10000,
-        duration: 500,
-        velocity: 70
-      },
-      {
-        pitch: 63, // D#4
-        startTime: now + 11000,
-        duration: 500,
-        velocity: 70
-      },
-      // より複雑なコード
-      {
-        pitch: 57, // A3
-        startTime: now + 13000,
-        duration: 1500,
-        velocity: 85
-      },
-      {
-        pitch: 60, // C4
-        startTime: now + 13000,
-        duration: 1500,
-        velocity: 85
-      },
-      {
-        pitch: 64, // E4
-        startTime: now + 13000,
-        duration: 1500,
-        velocity: 85
-      },
-      {
-        pitch: 67, // G4
-        startTime: now + 13000,
-        duration: 1500,
-        velocity: 85
-      }
+      { pitch: 61, timing: { beat: 6, duration: 0.5 }, velocity: 70 },   // C#4: 6拍目（八分音符）
+      { pitch: 63, timing: { beat: 6.5, duration: 0.5 }, velocity: 70 }, // D#4: 6.5拍目（八分音符）
+
+      // より複雑なコード - Amコード
+      { pitch: 57, timing: { beat: 8, duration: 3 }, velocity: 85, isChord: true, chordNotes: [60, 64] }, // A3
+      { pitch: 60, timing: { beat: 8, duration: 3 }, velocity: 85, isChord: true },                       // C4
+      { pitch: 64, timing: { beat: 8, duration: 3 }, velocity: 85, isChord: true },                       // E4
+
+      // 3連符のテスト
+      { pitch: 72, timing: { beat: 12, duration: 1 / 3 }, velocity: 80 },     // C5: 12拍目（3連符1つ目）
+      { pitch: 74, timing: { beat: 12 + 1 / 3, duration: 1 / 3 }, velocity: 80 }, // D5: 3連符2つ目
+      { pitch: 76, timing: { beat: 12 + 2 / 3, duration: 1 / 3 }, velocity: 80 }, // E5: 3連符3つ目
     ];
 
-    console.log('Sample notes loaded:', this.currentNotes.length);
+    // 音楽的ノートを時間ベースに変換してUIRenderer用に設定
+    this.updateCurrentNotes();
+
+    console.log('Musical notes loaded:', this.musicalNotes.length);
+    console.log('Current BPM:', this.currentBPM);
+  }
+
+  /**
+   * 音楽的ノートを時間ベースのノートに変換してcurrentNotesを更新
+   */
+  private updateCurrentNotes(): void {
+    const timeBasedNotes = this.beatTimeConverter.convertNotes(this.musicalNotes);
+    console.log("aaaaaa")
+
+    // 相対時間として設定（ゲーム開始時刻は加算しない）
+    this.currentNotes = timeBasedNotes.map(note => ({
+      ...note,
+      startTime: note.startTime // そのまま相対時間として使用
+    }));
+
+    console.log(`[PianoPracticeApp] Updated notes:`, {
+      musicalNotesCount: this.musicalNotes.length,
+      timeBasedNotesCount: this.currentNotes.length,
+      firstNoteStartTime: this.currentNotes[0]?.startTime,
+      sampleNotes: this.currentNotes.slice(0, 3).map(n => ({
+        pitch: n.pitch,
+        startTime: n.startTime,
+        duration: n.duration
+      }))
+    });
   }
 
   private showError(message: string): void {
@@ -484,6 +479,92 @@ export class PianoPracticeApp {
         errorElement.style.display = 'none';
       }, 5000);
     }
+  }
+
+  /**
+   * BPM調整コントロールを設定
+   */
+  private setupBPMControls(): void {
+    const bpmSlider = document.getElementById('bpmSlider') as HTMLInputElement;
+    const bpmDisplay = document.getElementById('bpmDisplay');
+    const bpmValue = document.getElementById('bpmValue');
+    const bpmUp = document.getElementById('bpmUp');
+    const bpmDown = document.getElementById('bpmDown');
+
+    if (bpmSlider && bpmDisplay && bpmValue) {
+      // スライダーの変更イベント
+      bpmSlider.addEventListener('input', (event) => {
+        const newBPM = parseInt((event.target as HTMLInputElement).value);
+        this.setBPM(newBPM);
+        this.updateBPMDisplay(newBPM);
+      });
+
+      // +ボタン
+      if (bpmUp) {
+        bpmUp.addEventListener('click', () => {
+          const newBPM = Math.min(200, this.currentBPM + 5);
+          this.setBPM(newBPM);
+          this.updateBPMDisplay(newBPM);
+          bpmSlider.value = newBPM.toString();
+        });
+      }
+
+      // -ボタン
+      if (bpmDown) {
+        bpmDown.addEventListener('click', () => {
+          const newBPM = Math.max(60, this.currentBPM - 5);
+          this.setBPM(newBPM);
+          this.updateBPMDisplay(newBPM);
+          bpmSlider.value = newBPM.toString();
+        });
+      }
+
+      // 初期表示を更新
+      this.updateBPMDisplay(this.currentBPM);
+    }
+  }
+
+  /**
+   * BPM表示を更新
+   */
+  private updateBPMDisplay(bpm: number): void {
+    const bpmDisplay = document.getElementById('bpmDisplay');
+    const bpmValue = document.getElementById('bpmValue');
+
+    if (bpmDisplay) {
+      bpmDisplay.textContent = bpm.toString();
+    }
+
+    if (bpmValue) {
+      bpmValue.textContent = bpm.toString();
+    }
+  }
+
+  /**
+   * BPMを変更
+   */
+  public setBPM(newBPM: number): void {
+    if (newBPM <= 0) {
+      console.error('BPM must be greater than 0');
+      return;
+    }
+
+    this.currentBPM = newBPM;
+    this.beatTimeConverter.setBPM(newBPM);
+
+    // 既存の音楽的ノートを新しいBPMで再変換
+    if (this.musicalNotes.length > 0) {
+      this.updateCurrentNotes();
+    }
+
+    console.log(`BPM changed to: ${newBPM}`);
+  }
+
+  /**
+   * 現在のBPMを取得
+   */
+  public getBPM(): number {
+    return this.currentBPM;
   }
 
   /**

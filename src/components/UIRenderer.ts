@@ -8,7 +8,7 @@ export class UIRenderer {
   private ctx: CanvasRenderingContext2D | null = null;
   private animationId: number | null = null;
   private theme: 'light' | 'dark' = 'dark';
-  
+
   // 描画設定
   private readonly colors = {
     light: {
@@ -60,7 +60,7 @@ export class UIRenderer {
 
   // ノート状態管理
   private noteStates = new Map<string, 'pending' | 'hit' | 'missed'>();
-  
+
   // 現在押されている鍵盤の追跡
   private pressedKeys = new Set<number>();
 
@@ -70,17 +70,17 @@ export class UIRenderer {
   initCanvas(canvasElement: HTMLCanvasElement): void {
     this.canvas = canvasElement;
     this.ctx = canvasElement.getContext('2d');
-    
+
     if (!this.ctx) {
       throw new Error('Canvas 2D context could not be obtained');
     }
 
     // Canvas サイズを設定
     this.resizeCanvas();
-    
+
     // リサイズイベントリスナーを追加
     window.addEventListener('resize', () => this.resizeCanvas());
-    
+
     console.log('UIRenderer: Canvas initialized');
   }
 
@@ -89,15 +89,15 @@ export class UIRenderer {
    */
   private resizeCanvas(): void {
     if (!this.canvas) return;
-    
+
     const rect = this.canvas.getBoundingClientRect();
     this.canvas.width = rect.width * window.devicePixelRatio;
     this.canvas.height = rect.height * window.devicePixelRatio;
-    
+
     if (this.ctx) {
       this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
-    
+
     // 鍵盤レイアウトを再計算
     this.calculateKeyboardLayout();
   }
@@ -107,16 +107,16 @@ export class UIRenderer {
    */
   private calculateKeyboardLayout(): void {
     if (!this.canvas) return;
-    
+
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
-    
+
     // 鍵盤エリアの設定
     const keyboardHeight = height * 0.2;
     const totalOctaves = this.keyboardLayout.octaveRange.max - this.keyboardLayout.octaveRange.min + 1;
     const whiteKeysPerOctave = 7;
     const totalWhiteKeys = totalOctaves * whiteKeysPerOctave;
-    
+
     this.keyboardLayout.whiteKeyWidth = width / totalWhiteKeys;
     this.keyboardLayout.blackKeyWidth = this.keyboardLayout.whiteKeyWidth * 0.6;
     this.keyboardLayout.whiteKeyHeight = keyboardHeight;
@@ -130,19 +130,19 @@ export class UIRenderer {
     if (!this.ctx || !this.canvas) return;
 
     const currentColors = this.colors[this.theme];
-    
+
     // 背景をクリア
     this.clearCanvas();
-    
+
     // 背景を描画
     this.drawBackground();
-    
+
     // ゲーム情報を描画
     this.drawGameInfo(gameState);
-    
+
     // ノートを描画
     this.drawNotes(notes, gameState.currentTime);
-    
+
     // 鍵盤エリアを描画
     this.drawKeyboard();
   }
@@ -152,7 +152,7 @@ export class UIRenderer {
    */
   private clearCanvas(): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     this.ctx.fillStyle = currentColors.background;
     this.ctx.fillRect(0, 0, this.canvas.width / window.devicePixelRatio, this.canvas.height / window.devicePixelRatio);
@@ -163,16 +163,16 @@ export class UIRenderer {
    */
   private drawBackground(): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
-    
+
     // グラデーション背景
     const gradient = this.ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, currentColors.background);
     gradient.addColorStop(1, this.theme === 'dark' ? '#2a2a2a' : '#f8f9fa');
-    
+
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, width, height);
   }
@@ -182,23 +182,20 @@ export class UIRenderer {
    */
   private drawGameInfo(gameState: GameState): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
-    
+
     this.ctx.fillStyle = currentColors.primary;
     this.ctx.font = '24px Arial';
     this.ctx.textAlign = 'left';
-    
+
     // スコア表示
     this.ctx.fillText(`Score: ${gameState.score}`, 20, 40);
-    
+
     // 正解率表示
     this.ctx.fillText(`Accuracy: ${(gameState.accuracy * 100).toFixed(1)}%`, 20, 70);
-    
-    // 現在の小節表示
-    this.ctx.fillText(`Measure: ${gameState.currentMeasure}`, 20, 100);
-    
+
     // 再生状態表示
     this.ctx.fillStyle = gameState.isPlaying ? currentColors.success : currentColors.secondary;
     this.ctx.fillText(gameState.isPlaying ? 'Playing' : 'Paused', width - 120, 40);
@@ -209,20 +206,20 @@ export class UIRenderer {
    */
   private drawNotes(notes: Note[], currentTime: number): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
-    
+
     // 鍵盤エリアの高さ（画面下部20%）
     const keyboardHeight = height * 0.2;
     const noteAreaHeight = height - keyboardHeight;
-    
+
     // タイミングラインを描画
     this.drawTimingLine(height - keyboardHeight);
-    
+
     // ノートをグループ化（コード検出）
     const noteGroups = this.groupNotesByTiming(notes, currentTime);
-    
+
     noteGroups.forEach(group => {
       if (group.notes.length > 1) {
         // コード（和音）として描画
@@ -239,37 +236,40 @@ export class UIRenderer {
    */
   private drawTimingLine(y: number): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
-    
+
     this.ctx.strokeStyle = currentColors.timingLine;
     this.ctx.lineWidth = 3;
     this.ctx.setLineDash([10, 5]);
-    
+
     this.ctx.beginPath();
     this.ctx.moveTo(0, y);
     this.ctx.lineTo(width, y);
     this.ctx.stroke();
-    
+
     this.ctx.setLineDash([]); // リセット
   }
 
   /**
    * ノートをタイミングでグループ化
    */
-  private groupNotesByTiming(notes: Note[], currentTime: number): Array<{notes: Note[], timing: number}> {
+  private groupNotesByTiming(notes: Note[], currentTime: number): Array<{ notes: Note[], timing: number }> {
     const groups = new Map<number, Note[]>();
     const tolerance = 50; // 50ms以内は同じタイミングとみなす
-    
+
+    let visibleNotesCount = 0;
+
     notes.forEach(note => {
       // 表示範囲内のノートのみ処理
       const showTime = note.startTime - 2000;
       const hideTime = note.startTime + note.duration;
-      
+
       if (currentTime >= showTime && currentTime <= hideTime) {
+        visibleNotesCount++;
         let foundGroup = false;
-        
+
         for (const [timing, groupNotes] of groups) {
           if (Math.abs(note.startTime - timing) <= tolerance) {
             groupNotes.push(note);
@@ -277,13 +277,13 @@ export class UIRenderer {
             break;
           }
         }
-        
+
         if (!foundGroup) {
           groups.set(note.startTime, [note]);
         }
       }
     });
-    
+
     return Array.from(groups.entries()).map(([timing, notes]) => ({
       notes,
       timing
@@ -295,24 +295,24 @@ export class UIRenderer {
    */
   private drawSingleNote(note: Note, currentTime: number, noteAreaHeight: number): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const width = this.canvas.width / window.devicePixelRatio;
-    
+
     // ノートの表示タイミングを計算
     const showTime = note.startTime - 2000;
     const progress = Math.max(0, Math.min(1, (currentTime - showTime) / 2000));
     const y = progress * noteAreaHeight;
-    
+
     // ノートの水平位置を計算
     const x = this.getPreciseNoteXPosition(note.pitch, width);
-    
+
     // ノートの状態を取得
     const noteId = `${note.pitch}-${note.startTime}`;
     const state = this.noteStates.get(noteId) || 'pending';
-    
+
     // ノートトレイルを描画
     this.drawNoteTrail(x, y, progress);
-    
+
     // ノートを描画
     this.drawNote(x, y, note, state, currentTime >= note.startTime);
   }
@@ -322,33 +322,33 @@ export class UIRenderer {
    */
   private drawChord(notes: Note[], timing: number, currentTime: number, noteAreaHeight: number): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const width = this.canvas.width / window.devicePixelRatio;
     const currentColors = this.colors[this.theme];
-    
+
     // コードの表示タイミングを計算
     const showTime = timing - 2000;
     const progress = Math.max(0, Math.min(1, (currentTime - showTime) / 2000));
     const y = progress * noteAreaHeight;
-    
+
     // コードの範囲を計算
     const positions = notes.map(note => this.getPreciseNoteXPosition(note.pitch, width));
     const minX = Math.min(...positions);
     const maxX = Math.max(...positions);
-    
+
     // コード背景を描画
     this.ctx.fillStyle = currentColors.chord + '20'; // 透明度20%
     this.ctx.fillRect(minX - 10, y - 5, maxX - minX + 20, 30);
-    
+
     // 個別のノートを描画
     notes.forEach(note => {
       const x = this.getPreciseNoteXPosition(note.pitch, width);
       const noteId = `${note.pitch}-${note.startTime}`;
       const state = this.noteStates.get(noteId) || 'pending';
-      
+
       this.drawNote(x, y, note, state, currentTime >= timing);
     });
-    
+
     // コード名を表示
     if (notes.length >= 3) {
       const chordName = this.getChordName(notes);
@@ -364,13 +364,13 @@ export class UIRenderer {
    */
   private drawNoteTrail(x: number, y: number, progress: number): void {
     if (!this.ctx || progress <= 0) return;
-    
+
     const currentColors = this.colors[this.theme];
     const trailLength = 50;
-    
+
     this.ctx.strokeStyle = currentColors.noteTrail;
     this.ctx.lineWidth = 2;
-    
+
     this.ctx.beginPath();
     this.ctx.moveTo(x, Math.max(0, y - trailLength));
     this.ctx.lineTo(x, y);
@@ -382,14 +382,14 @@ export class UIRenderer {
    */
   private drawNote(x: number, y: number, note: Note, state: 'pending' | 'hit' | 'missed', isActive: boolean): void {
     if (!this.ctx) return;
-    
+
     const currentColors = this.colors[this.theme];
     const isBlackKey = this.isBlackKey(note.pitch);
-    
+
     // ノートサイズを鍵盤タイプに応じて調整
     const noteWidth = isBlackKey ? this.keyboardLayout.blackKeyWidth * 0.8 : this.keyboardLayout.whiteKeyWidth * 0.8;
     const noteHeight = 25;
-    
+
     // ノートの色を状態に応じて決定
     let noteColor: string;
     switch (state) {
@@ -402,31 +402,31 @@ export class UIRenderer {
       default:
         noteColor = isBlackKey ? currentColors.blackKeyNote : currentColors.whiteKeyNote;
     }
-    
+
     // アクティブ状態の場合は光らせる
     if (isActive && state === 'pending') {
       this.ctx.shadowColor = noteColor;
       this.ctx.shadowBlur = 10;
     }
-    
+
     this.ctx.fillStyle = noteColor;
-    
+
     // ノートを描画（黒鍵は少し小さく）
     if (isBlackKey) {
       this.drawRoundedRect(x - noteWidth / 2, y, noteWidth, noteHeight, 3);
     } else {
       this.drawRoundedRect(x - noteWidth / 2, y, noteWidth, noteHeight, 5);
     }
-    
+
     // 影をリセット
     this.ctx.shadowBlur = 0;
-    
+
     // ノート名を表示
     this.ctx.fillStyle = this.getContrastColor(noteColor);
     this.ctx.font = isBlackKey ? '10px Arial' : '12px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(this.midiNoteToName(note.pitch), x, y + 15);
-    
+
     // ベロシティインジケーター
     if (note.velocity && note.velocity < 127) {
       const velocityHeight = (note.velocity / 127) * 3;
@@ -440,21 +440,21 @@ export class UIRenderer {
    */
   private drawKeyboard(): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
-    
+
     // 鍵盤エリアの位置とサイズ
     const keyboardHeight = height * 0.2;
     const keyboardY = height - keyboardHeight;
-    
+
     // 白鍵を先に描画
     this.drawWhiteKeys(keyboardY, keyboardHeight);
-    
+
     // 黒鍵を後に描画（白鍵の上に重ねる）
     this.drawBlackKeys(keyboardY, keyboardHeight);
-    
+
     // 鍵盤の境界線
     this.ctx.strokeStyle = currentColors.primary;
     this.ctx.lineWidth = 2;
@@ -466,27 +466,27 @@ export class UIRenderer {
    */
   private drawWhiteKeys(keyboardY: number, keyboardHeight: number): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
-    
+
     let whiteKeyIndex = 0;
-    
+
     for (let octave = this.keyboardLayout.octaveRange.min; octave <= this.keyboardLayout.octaveRange.max; octave++) {
       this.keyboardLayout.whiteKeys.forEach(noteInOctave => {
         const midiNote = octave * 12 + noteInOctave;
         const x = whiteKeyIndex * this.keyboardLayout.whiteKeyWidth;
-        
+
         // 白鍵を描画（押されている場合はハイライト）
         const isPressed = this.pressedKeys.has(midiNote);
         this.ctx!.fillStyle = isPressed ? currentColors.accent : currentColors.whiteKey;
         this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
-        
+
         // 境界線
         this.ctx!.strokeStyle = isPressed ? currentColors.primary : currentColors.secondary;
         this.ctx!.lineWidth = isPressed ? 2 : 1;
         this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
-        
+
         // ノート名を表示（黒色で見やすく）
         this.ctx!.fillStyle = '#000000';
         this.ctx!.font = 'bold 11px Arial';
@@ -496,7 +496,7 @@ export class UIRenderer {
           x + this.keyboardLayout.whiteKeyWidth / 2,
           keyboardY + keyboardHeight - 8
         );
-        
+
         whiteKeyIndex++;
       });
     }
@@ -507,9 +507,9 @@ export class UIRenderer {
    */
   private drawBlackKeys(keyboardY: number, keyboardHeight: number): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
-    
+
     for (let octave = this.keyboardLayout.octaveRange.min; octave <= this.keyboardLayout.octaveRange.max; octave++) {
       // 黒鍵の配置パターン：C# D# _ F# G# A#
       // 白鍵の境界（右端）に配置するように調整
@@ -520,22 +520,22 @@ export class UIRenderer {
         { note: 8, position: 5.0 },   // G# (Gの右端、Aの左端)
         { note: 10, position: 6.0 }   // A# (Aの右端、Bの左端)
       ];
-      
+
       blackKeyPattern.forEach(({ note, position }) => {
         const midiNote = octave * 12 + note;
         const octaveOffset = octave - this.keyboardLayout.octaveRange.min;
         const x = (octaveOffset * 7 + position) * this.keyboardLayout.whiteKeyWidth - this.keyboardLayout.blackKeyWidth / 2;
-        
+
         // 黒鍵を描画（押されている場合はハイライト）
         const isPressed = this.pressedKeys.has(midiNote);
         this.ctx!.fillStyle = isPressed ? currentColors.accent : currentColors.blackKey;
         this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
-        
+
         // 境界線
         this.ctx!.strokeStyle = currentColors.primary;
         this.ctx!.lineWidth = isPressed ? 3 : 1;
         this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
-        
+
         // ノート名を表示（白色で見やすく）
         this.ctx!.fillStyle = '#ffffff';
         this.ctx!.font = 'bold 9px Arial';
@@ -554,18 +554,18 @@ export class UIRenderer {
    */
   showNoteHit(note: Note, result: ScoreResult): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
-    
+
     const x = this.getPreciseNoteXPosition(note.pitch, width);
     const y = height - (height * 0.1); // 鍵盤エリアの上部
-    
+
     // ノート状態を更新
     const noteId = `${note.pitch}-${note.startTime}`;
     this.noteStates.set(noteId, result.isCorrect ? 'hit' : 'missed');
-    
+
     // 結果に応じた色を選択
     let color: string;
     switch (result.feedback) {
@@ -581,30 +581,30 @@ export class UIRenderer {
       default:
         color = currentColors.secondary;
     }
-    
+
     // エフェクト円を描画（サイズを調整）
     const effectSize = result.feedback === 'perfect' ? 40 : result.feedback === 'good' ? 30 : 25;
-    
+
     this.ctx.fillStyle = color;
     this.ctx.globalAlpha = 0.8;
     this.ctx.beginPath();
     this.ctx.arc(x, y, effectSize, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.globalAlpha = 1.0;
-    
+
     // フィードバックテキストを表示
     this.ctx.fillStyle = this.getContrastColor(color);
     this.ctx.font = 'bold 16px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(result.feedback.toUpperCase(), x, y + 5);
-    
+
     // スコアを表示
     if (result.points > 0) {
       this.ctx.fillStyle = currentColors.success;
       this.ctx.font = '12px Arial';
       this.ctx.fillText(`+${result.points}`, x, y - 25);
     }
-    
+
     // エフェクトを一定時間後にフェードアウト
     setTimeout(() => {
       this.fadeOutEffect(x, y, color, effectSize);
@@ -616,14 +616,14 @@ export class UIRenderer {
    */
   private fadeOutEffect(x: number, y: number, color: string, size: number): void {
     if (!this.ctx) return;
-    
+
     let alpha = 0.8;
     const fadeInterval = setInterval(() => {
       if (alpha <= 0) {
         clearInterval(fadeInterval);
         return;
       }
-      
+
       // 前のエフェクトをクリア（簡易版）
       this.ctx!.globalAlpha = alpha;
       this.ctx!.fillStyle = color;
@@ -631,7 +631,7 @@ export class UIRenderer {
       this.ctx!.arc(x, y, size * (1 + (0.8 - alpha)), 0, Math.PI * 2);
       this.ctx!.fill();
       this.ctx!.globalAlpha = 1.0;
-      
+
       alpha -= 0.1;
     }, 50);
   }
@@ -682,19 +682,19 @@ export class UIRenderer {
    */
   showMetronome(beat: number): void {
     if (!this.ctx || !this.canvas) return;
-    
+
     const currentColors = this.colors[this.theme];
     const width = this.canvas.width / window.devicePixelRatio;
-    
+
     // メトロノームインジケーターを右上に表示
     const x = width - 60;
     const y = 80;
-    
+
     this.ctx.fillStyle = beat === 1 ? currentColors.accent : currentColors.secondary;
     this.ctx.beginPath();
     this.ctx.arc(x, y, 15, 0, Math.PI * 2);
     this.ctx.fill();
-    
+
     this.ctx.fillStyle = currentColors.background;
     this.ctx.font = '12px Arial';
     this.ctx.textAlign = 'center';
@@ -716,13 +716,13 @@ export class UIRenderer {
     if (this.animationId !== null) {
       return; // 既に開始されている
     }
-    
+
     const animate = () => {
       // アニメーションフレームでの更新処理
       // 実際のゲーム状態は外部から render メソッドで渡される
       this.animationId = requestAnimationFrame(animate);
     };
-    
+
     this.animationId = requestAnimationFrame(animate);
     console.log('UIRenderer: Animation loop started');
   }
@@ -744,14 +744,14 @@ export class UIRenderer {
   private getPreciseNoteXPosition(pitch: number, canvasWidth: number): number {
     const octave = Math.floor(pitch / 12);
     const noteInOctave = pitch % 12;
-    
+
     // 表示範囲内かチェック
     if (octave < this.keyboardLayout.octaveRange.min || octave > this.keyboardLayout.octaveRange.max) {
       return -1; // 表示範囲外
     }
-    
+
     const octaveOffset = octave - this.keyboardLayout.octaveRange.min;
-    
+
     if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
       // 白鍵の場合
       const whiteKeyIndex = this.keyboardLayout.whiteKeys.indexOf(noteInOctave);
@@ -766,12 +766,12 @@ export class UIRenderer {
         8: 5.0,   // G# (Gの右端、Aの左端)
         10: 6.0   // A# (Aの右端、Bの左端)
       };
-      
+
       const position = blackKeyPositions[noteInOctave];
       if (position !== undefined) {
         return (octaveOffset * 7 + position) * this.keyboardLayout.whiteKeyWidth;
       }
-      
+
       // フォールバック
       return octaveOffset * 7 * this.keyboardLayout.whiteKeyWidth;
     }
@@ -808,11 +808,11 @@ export class UIRenderer {
    */
   private getChordName(notes: Note[]): string {
     if (notes.length < 3) return '';
-    
+
     // 簡易的なコード判定（基本的な三和音のみ）
     const pitches = notes.map(note => note.pitch % 12).sort((a, b) => a - b);
     const intervals = [];
-    
+
     for (let i = 1; i < pitches.length; i++) {
       const currentPitch = pitches[i];
       const rootPitch = pitches[0];
@@ -820,13 +820,13 @@ export class UIRenderer {
         intervals.push(currentPitch - rootPitch);
       }
     }
-    
+
     // 基本的なコードパターンを判定
     const intervalString = intervals.join(',');
     const firstNote = notes[0];
     if (!firstNote) return '';
     const rootNote = this.midiNoteToName(firstNote.pitch).replace(/\d+/, '');
-    
+
     switch (intervalString) {
       case '4,7': return rootNote + 'maj';
       case '3,7': return rootNote + 'min';
@@ -851,7 +851,7 @@ export class UIRenderer {
    */
   private drawRoundedRect(x: number, y: number, width: number, height: number, radius: number): void {
     if (!this.ctx) return;
-    
+
     this.ctx.beginPath();
     this.ctx.moveTo(x + radius, y);
     this.ctx.lineTo(x + width - radius, y);
@@ -871,11 +871,11 @@ export class UIRenderer {
    */
   destroy(): void {
     this.stopAnimationLoop();
-    
+
     if (this.canvas) {
       window.removeEventListener('resize', () => this.resizeCanvas());
     }
-    
+
     this.canvas = null;
     this.ctx = null;
     console.log('UIRenderer: Destroyed');
