@@ -62,6 +62,7 @@ export interface GameState {
   currentTime: number;
   score: number;
   accuracy: number;
+  totalNotes?: number; // 通過したノート数
   countdownValue?: number | undefined; // カウントダウン中の数値（3, 2, 1）
 }
 

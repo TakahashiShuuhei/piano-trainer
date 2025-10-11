@@ -448,6 +448,7 @@ export class PianoPracticeApp {
       const scoreInfo = this.scoreEvaluator.getScore();
       this.currentGameState.score = scoreInfo.correct;
       this.currentGameState.accuracy = scoreInfo.accuracy;
+      this.currentGameState.totalNotes = scoreInfo.total;
       this.updateGameStateDisplay();
     }
 
@@ -1014,15 +1015,38 @@ export class PianoPracticeApp {
    * UIに統計情報を表示
    */
   private showStatsInUI(averageScore: number, averageAccuracy: number): void {
-    // 簡易的にアラートで表示（後でより良いUIに変更可能）
     const message = `ループ練習完了！\n` +
       `完了回数: ${this.loopStats.length}\n` +
-      `平均スコア: ${averageScore}\n` +
+      `平均正解数: ${averageScore}\n` +
       `平均正解率: ${averageAccuracy}%`;
 
-    setTimeout(() => {
-      alert(message);
-    }, 500);
+    // 結果表示エリアに表示
+    const resultDisplay = document.getElementById('resultDisplay');
+    const resultText = document.getElementById('resultText');
+    const closeResultBtn = document.getElementById('closeResultBtn');
+
+    if (resultDisplay && resultText) {
+      resultText.textContent = message;
+      resultDisplay.style.display = 'flex';
+
+      // 閉じるボタンのイベントリスナー
+      if (closeResultBtn) {
+        const closeHandler = () => {
+          resultDisplay.style.display = 'none';
+          closeResultBtn.removeEventListener('click', closeHandler);
+        };
+        closeResultBtn.addEventListener('click', closeHandler);
+      }
+
+      // 背景クリックで閉じる
+      const backgroundClickHandler = (event: MouseEvent) => {
+        if (event.target === resultDisplay) {
+          resultDisplay.style.display = 'none';
+          resultDisplay.removeEventListener('click', backgroundClickHandler);
+        }
+      };
+      resultDisplay.addEventListener('click', backgroundClickHandler);
+    }
   }
 
   /**
