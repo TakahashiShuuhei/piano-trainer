@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano Practice App</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .game-area {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background-color: #000;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #5b21b6, #7c3aed);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn:disabled {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            color: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn.secondary {
+            background: linear-gradient(135deg, #ec4899, #f97316);
+            box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
+        }
+        
+        .btn.secondary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #db2777, #ea580c);
+            box-shadow: 0 8px 25px rgba(236, 72, 153, 0.4);
+        }
+        
+        .btn.secondary:disabled {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            color: #9ca3af;
+            box-shadow: none;
+        }
+        
+        .btn.accent {
+            background: linear-gradient(135deg, #06b6d4, #10b981);
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+        }
+        
+        .btn.accent:hover:not(:disabled) {
+            background: linear-gradient(135deg, #0891b2, #059669);
+            box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
+        }
+
+        
+        .error-message {
+            background-color: #f44336;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .result-display {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .result-content {
+            background: linear-gradient(135deg, #1f2937, #374151);
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .result-content h3 {
+            background: linear-gradient(135deg, #10b981, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .result-content #resultText {
+            color: white;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            white-space: pre-line;
+        }
+        
+        /* スライダーのスタイル */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: linear-gradient(135deg, #374151, #4b5563);
+            border-radius: 3px;
+            outline: none;
+            margin: 0 10px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: linear-gradient(135deg, #5b21b6, #7c3aed);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.6);
+            transform: scale(1.1);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+        }
+        
+        /* セレクトボックスのスタイル */
+        select {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            color: white;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 6px;
+            padding: 5px 10px;
+            outline: none;
+        }
+        
+        select:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎹 Piano Practice App</h1>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        
+        <!-- 結果表示エリア -->
+        <div class="result-display" id="resultDisplay" style="display: none;">
+            <div class="result-content">
+                <h3>練習結果</h3>
+                <div id="resultText"></div>
+                <button class="btn" id="closeResultBtn">閉じる</button>
+            </div>
+        </div>
+        
+
+        
+
+        
+        <div class="game-area">
+            <canvas id="gameCanvas" width="800" height="400"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button class="btn accent" id="connectMidiBtn">MIDI接続</button>
+            <button class="btn" id="startBtn" disabled>開始</button>
+            <button class="btn secondary" id="pauseBtn" disabled>一時停止</button>
+            <button class="btn secondary" id="stopBtn" disabled>停止</button>
+        </div>
+        
+        <div class="controls-section" style="text-align: center; margin: 20px 0;">
+            <!-- BPMと音量調整を横並び -->
+            <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 15px; flex-wrap: wrap;">
+                <!-- BPM調整 -->
+                <div class="bpm-controls" style="display: flex; align-items: center; gap: 10px;">
+                    <label for="bpmSlider" style="color: white;">BPM:</label>
+                    <button class="btn accent" id="bpmDown" style="padding: 5px 10px;">-</button>
+                    <input type="range" id="bpmSlider" min="60" max="200" value="120">
+                    <button class="btn accent" id="bpmUp" style="padding: 5px 10px;">+</button>
+                    <span id="bpmDisplay" style="color: white; font-weight: bold;">120</span>
+                </div>
+                
+                <!-- 音量調整 -->
+                <div class="volume-controls" style="display: flex; align-items: center; gap: 10px;">
+                    <label for="volumeSlider" style="color: white;">音量:</label>
+                    <button class="btn accent" id="muteBtn" style="padding: 5px 10px;">🔊</button>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="30">
+                    <span id="volumeDisplay" style="color: white; font-weight: bold;">30%</span>
+                </div>
+            </div>
+            
+            <!-- ループ練習設定 -->
+            <div class="loop-controls" style="margin-bottom: 15px;">
+                <label style="color: white; margin-right: 10px;">
+                    <input type="checkbox" id="loopEnabled" style="margin-right: 5px;">
+                    ループ練習
+                </label>
+                <label for="loopCount" style="color: white; margin-left: 15px; margin-right: 5px;">回数:</label>
+                <select id="loopCount" style="margin-right: 10px;">
+                    <option value="0">無限</option>
+                    <option value="2">2回</option>
+                    <option value="3" selected>3回</option>
+                    <option value="5">5回</option>
+                    <option value="10">10回</option>
+                </select>
+                <span id="loopStatus" style="background: linear-gradient(135deg, #10b981, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: bold;"></span>
+            </div>
+        </div>
+    </div>
+    
+    <script src="bundle.js"></script>
+</body>
+</html>
