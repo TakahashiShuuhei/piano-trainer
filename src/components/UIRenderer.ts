@@ -1,4 +1,4 @@
-import { GameState, Note, ScoreResult } from '../types/index.js';
+import { GameState, GamePhase, Note, ScoreResult } from '../types/index.js';
 
 /**
  * Canvas APIを使用したゲーム画面の描画とアニメーション管理
@@ -129,6 +129,9 @@ export class UIRenderer {
     this.keyboardLayout.blackKeyHeight = keyboardHeight * 0.6;
   }
 
+  // 現在のBPMを保持（外部から設定）
+  private currentBPM: number = 120;
+
   /**
    * ゲーム状態とノート情報を基に画面を描画
    */
@@ -146,11 +149,23 @@ export class UIRenderer {
     // ゲーム情報を描画
     this.drawGameInfo(gameState);
 
-    // ノートを描画
-    this.drawNotes(notes, gameState.currentTime);
+    // カウントダウン表示
+    if (gameState.phase === GamePhase.COUNTDOWN && gameState.countdownValue !== undefined) {
+      this.drawCountdown(gameState.countdownValue);
+    } else {
+      // ノートを描画（カウントダウン中以外）
+      this.drawNotes(notes, gameState.currentTime);
+    }
 
     // 鍵盤エリアを描画
     this.drawKeyboard();
+  }
+
+  /**
+   * 現在のBPMを設定
+   */
+  public setBPM(bpm: number): void {
+    this.currentBPM = bpm;
   }
 
   /**
@@ -871,6 +886,71 @@ export class UIRenderer {
     this.ctx.quadraticCurveTo(x, y, x + radius, y);
     this.ctx.closePath();
     this.ctx.fill();
+  }
+
+  /**
+   * カウントダウンを描画
+   */
+  private drawCountdown(countdownValue: number): void {
+    if (!this.ctx || !this.canvas) return;
+
+    const currentColors = this.colors[this.theme];
+    const width = this.canvas.width / window.devicePixelRatio;
+    const height = this.canvas.height / window.devicePixelRatio;
+
+    // 画面中央にカウントダウンを表示
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    // カウントダウン値に応じて色を変更
+    let countdownColor: string;
+    if (countdownValue === 0) {
+      countdownColor = currentColors.success; // START!
+    } else if (countdownValue === 1) {
+      countdownColor = currentColors.error; // 1
+    } else if (countdownValue === 2) {
+      countdownColor = currentColors.accent; // 2
+    } else {
+      countdownColor = currentColors.primary; // 4, 3
+    }
+
+    // 大きな円を描画
+    this.ctx.fillStyle = countdownColor + '40'; // 透明度40%
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, 120, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 円の境界線
+    this.ctx.strokeStyle = countdownColor;
+    this.ctx.lineWidth = 4;
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, 120, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    // カウントダウンテキストを描画
+    this.ctx.fillStyle = countdownColor;
+    this.ctx.font = 'bold 80px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+
+    const displayText = countdownValue === 0 ? 'START!' : countdownValue.toString();
+    this.ctx.fillText(displayText, centerX, centerY);
+
+    // BPM情報を表示
+    this.ctx.fillStyle = currentColors.secondary;
+    this.ctx.font = '24px Arial';
+    this.ctx.fillText('準備してください', centerX, centerY + 80);
+
+    // 小さなメトロノーム表示
+    this.ctx.font = '16px Arial';
+    this.ctx.fillText(`BPM: ${this.getCurrentBPM()}`, centerX, centerY + 110);
+  }
+
+  /**
+   * 現在のBPMを取得
+   */
+  private getCurrentBPM(): number {
+    return this.currentBPM;
   }
 
   /**

@@ -5,6 +5,7 @@ import {
   ContentManager,
   MetronomeService,
   GameState,
+  GamePhase,
   PracticeContent,
   Note,
   ScoreResult,
@@ -33,11 +34,16 @@ export class PianoPracticeApp {
 
   // 現在のゲーム状態（UIRenderer統合用）
   private currentGameState: GameState = {
+    phase: GamePhase.STOPPED,
     isPlaying: false,
     currentTime: 0, // 実時間（ミリ秒）
     score: 0,
     accuracy: 1.0
   };
+
+  // カウントダウン関連
+  private countdownTimer: NodeJS.Timeout | null = null;
+  private countdownStartTime: number = 0;
 
   // 音楽的ノート（拍ベース）
   private musicalNotes: MusicalNote[] = [];
@@ -88,6 +94,7 @@ export class PianoPracticeApp {
       this.uiRenderer = new UIRenderer();
       this.uiRenderer.initCanvas(this.canvas);
       this.uiRenderer.setTheme('dark'); // デフォルトテーマ
+      this.uiRenderer.setBPM(this.currentBPM); // 初期BPMを設定
 
       // MIDIInputManagerの初期化
       this.midiManager = new MIDIInputManager();
@@ -203,35 +210,121 @@ export class PianoPracticeApp {
 
   private handleStart(): void {
     if (!this.isInitialized) return;
-    console.log('Starting practice session...');
+    console.log('Starting countdown...');
+
+    // カウントダウンを開始
+    this.startCountdown();
+  }
+
+  /**
+   * カウントダウンを開始
+   */
+  private startCountdown(): void {
+    // ゲーム状態をカウントダウンに変更
+    this.currentGameState.phase = GamePhase.COUNTDOWN;
+    this.currentGameState.isPlaying = false;
+    this.currentGameState.countdownValue = 4;
+
+    // サンプルノートを追加（カウントダウン中に準備）
+    this.loadSampleNotes();
+
+    this.updateGameStateDisplay();
+
+    // カウントダウンタイマーを開始
+    this.countdownStartTime = Date.now();
+    let countdownValue = 4;
+
+    const countdownInterval = setInterval(() => {
+      const elapsed = Date.now() - this.countdownStartTime;
+      const beatDuration = 60000 / this.currentBPM; // 1拍の長さ（ミリ秒）
+      const expectedCount = 4 - Math.floor(elapsed / beatDuration);
+
+      if (expectedCount !== countdownValue && expectedCount >= 0) {
+        countdownValue = expectedCount;
+        this.currentGameState.countdownValue = countdownValue;
+        
+        // メトロノーム音を再生（簡易版）
+        this.playCountdownBeep(countdownValue);
+        
+        console.log(`Countdown: ${countdownValue || 'START!'}`);
+      }
+
+      // カウントダウン完了
+      if (elapsed >= beatDuration * 4) {
+        clearInterval(countdownInterval);
+        this.startActualGame();
+      }
+    }, 50); // 50msごとにチェック
+
+    this.countdownTimer = countdownInterval as NodeJS.Timeout;
+  }
+
+  /**
+   * 実際のゲームを開始（カウントダウン完了後）
+   */
+  private startActualGame(): void {
+    console.log('Starting actual game...');
 
     // 音楽的時間管理を開始
     this.musicalTimeManager.start();
 
     // ゲーム状態を開始に変更
+    this.currentGameState.phase = GamePhase.PLAYING;
     this.currentGameState.isPlaying = true;
     this.currentGameState.currentTime = 0;
-
-    // サンプルノートを追加（テスト用）
-    this.loadSampleNotes();
+    this.currentGameState.countdownValue = undefined;
 
     this.updateGameStateDisplay();
+  }
 
-    // TODO: GameEngineの実装後に開始処理を追加
+  /**
+   * カウントダウン音を再生（簡易版）
+   */
+  private playCountdownBeep(count: number): void {
+    try {
+      // Web Audio APIを使用した簡易ビープ音
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // 音程を設定（カウントが小さいほど高い音）
+      oscillator.frequency.setValueAtTime(count === 0 ? 800 : 600, audioContext.currentTime);
+      oscillator.type = 'sine';
+
+      // 音量を設定
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+      // 音を再生
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (error) {
+      console.warn('Could not play countdown beep:', error);
+    }
   }
 
   private handlePause(): void {
     if (!this.isInitialized) return;
 
-    if (this.currentGameState.isPlaying) {
+    // カウントダウン中は一時停止できない
+    if (this.currentGameState.phase === GamePhase.COUNTDOWN) {
+      return;
+    }
+
+    if (this.currentGameState.phase === GamePhase.PLAYING) {
       // 一時停止
       console.log('Pausing practice session...');
       this.musicalTimeManager.pause();
+      this.currentGameState.phase = GamePhase.PAUSED;
       this.currentGameState.isPlaying = false;
-    } else {
+    } else if (this.currentGameState.phase === GamePhase.PAUSED) {
       // 再開
       console.log('Resuming practice session...');
       this.musicalTimeManager.resume();
+      this.currentGameState.phase = GamePhase.PLAYING;
       this.currentGameState.isPlaying = true;
     }
 
@@ -242,14 +335,22 @@ export class PianoPracticeApp {
     if (!this.isInitialized) return;
     console.log('Stopping practice session...');
 
+    // カウントダウンタイマーをクリア
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer as NodeJS.Timeout);
+      this.countdownTimer = null;
+    }
+
     // 音楽的時間管理を停止
     this.musicalTimeManager.stop();
 
     // ゲーム状態をリセット
+    this.currentGameState.phase = GamePhase.STOPPED;
     this.currentGameState.isPlaying = false;
     this.currentGameState.currentTime = 0;
     this.currentGameState.score = 0;
     this.currentGameState.accuracy = 1.0;
+    this.currentGameState.countdownValue = undefined;
 
     // ノートをクリア
     this.currentNotes = [];
@@ -297,26 +398,34 @@ export class PianoPracticeApp {
     const stopBtn = document.getElementById('stopBtn') as HTMLButtonElement;
 
     if (startBtn && pauseBtn && stopBtn) {
-      // ゲーム開始前
-      if (!this.musicalTimeManager.isStarted()) {
-        startBtn.disabled = false;
-        pauseBtn.disabled = true;
-        stopBtn.disabled = true;
-        pauseBtn.textContent = '一時停止';
-      }
-      // ゲーム中
-      else if (state.isPlaying) {
-        startBtn.disabled = true;
-        pauseBtn.disabled = false;
-        stopBtn.disabled = false;
-        pauseBtn.textContent = '一時停止';
-      }
-      // 一時停止中
-      else {
-        startBtn.disabled = true;
-        pauseBtn.disabled = false;
-        stopBtn.disabled = false;
-        pauseBtn.textContent = '再開';
+      switch (state.phase) {
+        case GamePhase.STOPPED:
+          startBtn.disabled = false;
+          pauseBtn.disabled = true;
+          stopBtn.disabled = true;
+          pauseBtn.textContent = '一時停止';
+          break;
+          
+        case GamePhase.COUNTDOWN:
+          startBtn.disabled = true;
+          pauseBtn.disabled = true; // カウントダウン中は一時停止不可
+          stopBtn.disabled = false;
+          pauseBtn.textContent = '一時停止';
+          break;
+          
+        case GamePhase.PLAYING:
+          startBtn.disabled = true;
+          pauseBtn.disabled = false;
+          stopBtn.disabled = false;
+          pauseBtn.textContent = '一時停止';
+          break;
+          
+        case GamePhase.PAUSED:
+          startBtn.disabled = true;
+          pauseBtn.disabled = false;
+          stopBtn.disabled = false;
+          pauseBtn.textContent = '再開';
+          break;
       }
     }
   }
@@ -368,7 +477,7 @@ export class PianoPracticeApp {
   private startRenderLoop(): void {
     const render = () => {
       // ゲームが再生中の場合、時間を進める
-      if (this.currentGameState.isPlaying && this.musicalTimeManager.isStarted()) {
+      if (this.currentGameState.phase === GamePhase.PLAYING && this.musicalTimeManager.isStarted()) {
         // 音楽的時間管理から現在時刻を取得
         this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
       }
@@ -577,6 +686,9 @@ export class PianoPracticeApp {
     
     // BeatTimeConverterも更新
     this.beatTimeConverter.setBPM(newBPM);
+
+    // UIRendererにもBPMを設定
+    this.uiRenderer.setBPM(newBPM);
 
     // 既存の音楽的ノートを新しいBPMで再変換
     if (this.musicalNotes.length > 0) {

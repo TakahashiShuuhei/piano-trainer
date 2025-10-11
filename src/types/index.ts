@@ -49,11 +49,20 @@ export interface ScoreResult {
   feedback: 'perfect' | 'good' | 'miss';
 }
 
+export enum GamePhase {
+  STOPPED = 'stopped',
+  COUNTDOWN = 'countdown',
+  PLAYING = 'playing',
+  PAUSED = 'paused'
+}
+
 export interface GameState {
+  phase: GamePhase;
   isPlaying: boolean;
   currentTime: number;
   score: number;
   accuracy: number;
+  countdownValue?: number | undefined; // カウントダウン中の数値（3, 2, 1）
 }
 
 // Component interfaces
@@ -95,6 +104,7 @@ export interface UIRenderer {
   updateScore(score: number, accuracy: number): void;
   showMetronome(beat: number): void;
   setTheme(theme: 'light' | 'dark'): void;
+  setBPM(bpm: number): void;
   startAnimationLoop(): void;
   stopAnimationLoop(): void;
   setKeyPressed(pitch: number, pressed: boolean): void;
