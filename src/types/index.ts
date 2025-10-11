@@ -1,4 +1,18 @@
-// Core data models
+// Musical timing system
+export interface MusicalTiming {
+  beat: number;         // Position in quarter notes (0 = start)
+  duration: number;     // Duration in quarter notes
+}
+
+export interface MusicalNote {
+  pitch: number;        // MIDI note number (0-127)
+  timing: MusicalTiming;
+  velocity: number;     // 0-127
+  isChord?: boolean;    // true if part of chord
+  chordNotes?: number[]; // other notes in chord
+}
+
+// Legacy time-based note (for backward compatibility)
 export interface Note {
   pitch: number;        // MIDI note number (0-127)
   startTime: number;    // milliseconds from start
@@ -103,4 +117,14 @@ export interface MetronomeService {
   scheduleRepeat(callback: () => void, interval: string): void;
   getCurrentTime(): number;
   convertTimeToBeats(time: number): number;
+}
+
+// Beat-time conversion interface
+export interface BeatTimeConverter {
+  beatsToMs(beats: number): number;
+  msToBeats(ms: number): number;
+  setBPM(bpm: number): void;
+  getBPM(): number;
+  convertNote(musicalNote: MusicalNote): Note;
+  convertNotes(musicalNotes: MusicalNote[]): Note[];
 }
