@@ -1,4 +1,5 @@
-import * as Tone from 'tone';
+// @ts-ignore - Tone.jsのimport警告を無視
+const Tone = require('tone');
 import { MIDIInputManager as IMIDIInputManager } from '../types/index.js';
 
 export class MIDIInputManager implements IMIDIInputManager {
