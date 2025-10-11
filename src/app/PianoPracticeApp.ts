@@ -16,6 +16,7 @@ import { MIDIInputManager } from '../components/MIDIInputManager';
 import { UIRenderer } from '../components/UIRenderer';
 import { BeatTimeConverter } from '../utils/BeatTimeConverter';
 import { MusicalTimeManager } from '../utils/MusicalTimeManager';
+import { AudioFeedbackManager } from '../utils/AudioFeedbackManager';
 
 export class PianoPracticeApp {
   private gameEngine!: GameEngine;
@@ -30,6 +31,7 @@ export class PianoPracticeApp {
   // 音楽的タイミングシステム
   private beatTimeConverter!: IBeatTimeConverter;
   private musicalTimeManager!: MusicalTimeManager;
+  private audioFeedbackManager!: AudioFeedbackManager;
   private currentBPM = 120;
 
   // 現在のゲーム状態（UIRenderer統合用）
@@ -89,6 +91,7 @@ export class PianoPracticeApp {
       // 音楽的タイミングシステムの初期化
       this.beatTimeConverter = new BeatTimeConverter(this.currentBPM);
       this.musicalTimeManager = new MusicalTimeManager(this.currentBPM);
+      this.audioFeedbackManager = new AudioFeedbackManager();
 
       // UIRendererの初期化
       this.uiRenderer = new UIRenderer();
@@ -160,6 +163,9 @@ export class PianoPracticeApp {
     // BPM調整コントロール
     this.setupBPMControls();
 
+    // 音量調整コントロール
+    this.setupVolumeControls();
+
     console.log('Event listeners setup completed');
   }
 
@@ -191,6 +197,10 @@ export class PianoPracticeApp {
         if (devices.length > 0) {
           // Transport との同期を開始
           await this.midiManager.syncWithTransport();
+          
+          // オーディオコンテキストを開始
+          await this.audioFeedbackManager.startAudioContext();
+          
           this.updateMidiStatus(true);
           console.log('MIDI connection successful');
         } else {
@@ -208,9 +218,12 @@ export class PianoPracticeApp {
     }
   }
 
-  private handleStart(): void {
+  private async handleStart(): Promise<void> {
     if (!this.isInitialized) return;
     console.log('Starting countdown...');
+
+    // オーディオコンテキストを開始（ユーザージェスチャー）
+    await this.audioFeedbackManager.startAudioContext();
 
     // カウントダウンを開始
     this.startCountdown();
@@ -243,8 +256,8 @@ export class PianoPracticeApp {
         countdownValue = expectedCount;
         this.currentGameState.countdownValue = countdownValue;
         
-        // メトロノーム音を再生（簡易版）
-        this.playCountdownBeep(countdownValue);
+        // メトロノーム音を再生
+        this.audioFeedbackManager.playCountdownBeep(countdownValue);
         
         console.log(`Countdown: ${countdownValue || 'START!'}`);
       }
@@ -274,37 +287,13 @@ export class PianoPracticeApp {
     this.currentGameState.currentTime = 0;
     this.currentGameState.countdownValue = undefined;
 
+    // 再生済みノートをクリア
+    this.playedNotes.clear();
+
     this.updateGameStateDisplay();
   }
 
-  /**
-   * カウントダウン音を再生（簡易版）
-   */
-  private playCountdownBeep(count: number): void {
-    try {
-      // Web Audio APIを使用した簡易ビープ音
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      // 音程を設定（カウントが小さいほど高い音）
-      oscillator.frequency.setValueAtTime(count === 0 ? 800 : 600, audioContext.currentTime);
-      oscillator.type = 'sine';
-
-      // 音量を設定
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-
-      // 音を再生
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.1);
-    } catch (error) {
-      console.warn('Could not play countdown beep:', error);
-    }
-  }
 
   private handlePause(): void {
     if (!this.isInitialized) return;
@@ -358,6 +347,9 @@ export class PianoPracticeApp {
 
     // 演奏ガイドをクリア
     this.uiRenderer.clearTargetKeys();
+
+    // 再生済みノートをクリア
+    this.playedNotes.clear();
 
     this.updateGameStateDisplay();
 
@@ -449,6 +441,15 @@ export class PianoPracticeApp {
       points: 100,
       feedback: 'perfect'
     };
+
+    // 音声フィードバックを再生（演奏時のフィードバック）
+    if (mockResult.isCorrect) {
+      // 正解時：押したノートの音程を短く再生（楽譜の自動再生と区別）
+      this.audioFeedbackManager.playNoteSound(note, 0.2);
+    } else {
+      // 不正解時：エラー音を再生
+      this.audioFeedbackManager.playErrorSound();
+    }
 
     // UIRendererで視覚的フィードバックを表示
     const noteObj: Note = {
@@ -752,6 +753,9 @@ export class PianoPracticeApp {
     console.log(`Seeked to beat ${beats.toFixed(2)}`);
   }
 
+  // 既に再生したノートを追跡
+  private playedNotes = new Set<string>();
+
   /**
    * 演奏ガイドを更新
    */
@@ -768,6 +772,129 @@ export class PianoPracticeApp {
     // 現在のターゲット鍵盤を設定（ノート期間中のみ）
     const currentTargetKeys = activeNotes.map(note => note.pitch);
     this.uiRenderer.setCurrentTargetKeys(currentTargetKeys);
+
+    // 楽譜のノートを自動再生
+    this.playScheduledNotes(currentTime);
+  }
+
+  /**
+   * 楽譜のノートを指定されたタイミングで自動再生
+   */
+  private playScheduledNotes(currentTime: number): void {
+    const tolerance = 50; // 50ms の許容範囲
+
+    this.currentNotes.forEach(note => {
+      const noteId = `${note.pitch}-${note.startTime}`;
+      
+      // 既に再生済みのノートはスキップ
+      if (this.playedNotes.has(noteId)) {
+        return;
+      }
+
+      // ノートの開始タイミングに到達したか確認
+      if (Math.abs(currentTime - note.startTime) <= tolerance && currentTime >= note.startTime) {
+        console.log(`Auto-playing scheduled note: ${note.pitch} at time ${currentTime}`);
+        
+        // ノートを再生
+        this.audioFeedbackManager.playNoteSound(note.pitch, note.duration / 1000); // msを秒に変換
+        
+        // 再生済みとしてマーク
+        this.playedNotes.add(noteId);
+      }
+    });
+  }
+
+  /**
+   * 音量調整コントロールを設定
+   */
+  private setupVolumeControls(): void {
+    const volumeSlider = document.getElementById('volumeSlider') as HTMLInputElement;
+    const volumeDisplay = document.getElementById('volumeDisplay');
+    const muteBtn = document.getElementById('muteBtn');
+
+    if (volumeSlider && volumeDisplay) {
+      // スライダーの変更イベント
+      volumeSlider.addEventListener('input', (event) => {
+        const volumePercent = parseInt((event.target as HTMLInputElement).value);
+        const volume = volumePercent / 100; // 0-1に変換
+        this.setAudioVolume(volume);
+        this.updateVolumeDisplay(volumePercent);
+      });
+
+      // 初期表示を更新
+      const initialVolume = Math.round(this.getAudioVolume() * 100);
+      volumeSlider.value = initialVolume.toString();
+      this.updateVolumeDisplay(initialVolume);
+    }
+
+    // ミュートボタン
+    if (muteBtn) {
+      muteBtn.addEventListener('click', async () => {
+        // オーディオコンテキストを開始（初回クリック時）
+        await this.audioFeedbackManager.startAudioContext();
+        
+        const isMuted = this.toggleAudioMute();
+        this.updateMuteButton(isMuted);
+        
+        // テスト音を再生（ミュート解除時）
+        if (!isMuted) {
+          console.log('Playing test sound...');
+          this.audioFeedbackManager.playNoteSound(60, 0.3); // C4
+        }
+      });
+
+      // 初期状態を更新
+      this.updateMuteButton(this.isAudioMuted());
+    }
+  }
+
+  /**
+   * 音量表示を更新
+   */
+  private updateVolumeDisplay(volumePercent: number): void {
+    const volumeDisplay = document.getElementById('volumeDisplay');
+    if (volumeDisplay) {
+      volumeDisplay.textContent = `${volumePercent}%`;
+    }
+  }
+
+  /**
+   * ミュートボタンの表示を更新
+   */
+  private updateMuteButton(isMuted: boolean): void {
+    const muteBtn = document.getElementById('muteBtn');
+    if (muteBtn) {
+      muteBtn.textContent = isMuted ? '🔇' : '🔊';
+      muteBtn.title = isMuted ? 'ミュート解除' : 'ミュート';
+    }
+  }
+
+  /**
+   * 音量を設定 (0-1)
+   */
+  public setAudioVolume(volume: number): void {
+    this.audioFeedbackManager.setVolume(volume);
+  }
+
+  /**
+   * 現在の音量を取得 (0-1)
+   */
+  public getAudioVolume(): number {
+    return this.audioFeedbackManager.getVolume();
+  }
+
+  /**
+   * ミュート状態をトグル
+   */
+  public toggleAudioMute(): boolean {
+    return this.audioFeedbackManager.toggleMute();
+  }
+
+  /**
+   * ミュート状態を取得
+   */
+  public isAudioMuted(): boolean {
+    return this.audioFeedbackManager.isMutedState();
   }
 
   /**
@@ -787,6 +914,10 @@ export class PianoPracticeApp {
 
     if (this.midiManager) {
       this.midiManager.disconnect();
+    }
+
+    if (this.audioFeedbackManager) {
+      this.audioFeedbackManager.destroy();
     }
 
     console.log('PianoPracticeApp destroyed');

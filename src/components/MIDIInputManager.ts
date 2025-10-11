@@ -79,14 +79,14 @@ export class MIDIInputManager implements IMIDIInputManager {
       console.log('Syncing with Tone.js Transport...');
 
       // AudioContextを開始（ユーザージェスチャー後に必要）
-      const context = Tone.getContext();
+      const context = Tone.getContext ? Tone.getContext() : Tone.context;
       if (context.state === 'suspended') {
         console.log('Resuming AudioContext...');
         await context.resume();
       }
 
       // Tone.js Transportとの同期を確保
-      const transport = Tone.getTransport();
+      const transport = Tone.getTransport ? Tone.getTransport() : Tone.Transport;
       if (transport.state !== 'started') {
         console.log('Starting Tone.js Transport for MIDI sync');
         transport.start();
@@ -101,7 +101,8 @@ export class MIDIInputManager implements IMIDIInputManager {
   public getTransportTime(): number {
     // Tone.js Transport の現在時刻を取得
     try {
-      return Tone.getTransport().seconds;
+      const transport = Tone.getTransport ? Tone.getTransport() : Tone.Transport;
+      return transport.seconds;
     } catch (error) {
       console.warn('Failed to get Transport time, using fallback:', error);
       return performance.now() / 1000;
@@ -114,7 +115,8 @@ export class MIDIInputManager implements IMIDIInputManager {
     // Tone.js は AudioContext.currentTime ベース
     try {
       const performanceNow = performance.now();
-      const audioContextTime = Tone.getContext().currentTime;
+      const context = Tone.getContext ? Tone.getContext() : Tone.context;
+      const audioContextTime = context.currentTime;
       const timeDiff = (midiTimestamp - performanceNow) / 1000; // ミリ秒を秒に変換
 
       return audioContextTime + timeDiff;
