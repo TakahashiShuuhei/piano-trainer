@@ -46,7 +46,7 @@ export interface ScoreResult {
   isCorrect: boolean;
   timingAccuracy: number;
   points: number;
-  feedback: 'perfect' | 'good' | 'miss';
+  feedback: 'perfect' | 'good' | 'miss' | 'game_not_playing' | 'ignored' | 'no_content';
 }
 
 export enum GamePhase {
@@ -78,16 +78,6 @@ export interface MIDIInputManager {
   convertMidiTimeToTransportTime(midiTimestamp: number): number;
   isDeviceConnected(): boolean;
   disconnect(): void;
-}
-
-export interface GameEngine {
-  loadContent(content: PracticeContent): void;
-  start(): void;
-  pause(): void;
-  stop(): void;
-  processNoteInput(note: number, timestamp: number): ScoreResult;
-  getCurrentState(): GameState;
-  onStateChange(callback: (state: GameState) => void): void;
 }
 
 export interface ScoreEvaluator {

@@ -1,5 +1,4 @@
 import {
-  GameEngine,
   MIDIInputManager as IMIDIInputManager,
   UIRenderer as IUIRenderer,
   ContentManager,
@@ -17,9 +16,10 @@ import { UIRenderer } from '../components/UIRenderer';
 import { BeatTimeConverter } from '../utils/BeatTimeConverter';
 import { MusicalTimeManager } from '../utils/MusicalTimeManager';
 import { AudioFeedbackManager } from '../utils/AudioFeedbackManager';
+import { ScoreEvaluator } from '../utils/ScoreEvaluator';
 
 export class PianoPracticeApp {
-  private gameEngine!: GameEngine;
+  private scoreEvaluator!: ScoreEvaluator;
   private midiManager!: IMIDIInputManager;
   private uiRenderer!: IUIRenderer;
   private contentManager!: ContentManager;
@@ -92,6 +92,7 @@ export class PianoPracticeApp {
       this.beatTimeConverter = new BeatTimeConverter(this.currentBPM);
       this.musicalTimeManager = new MusicalTimeManager(this.currentBPM);
       this.audioFeedbackManager = new AudioFeedbackManager();
+      this.scoreEvaluator = new ScoreEvaluator();
 
       // UIRendererの初期化
       this.uiRenderer = new UIRenderer();
@@ -227,6 +228,9 @@ export class PianoPracticeApp {
 
     // オーディオコンテキストを開始（ユーザージェスチャー）
     await this.audioFeedbackManager.startAudioContext();
+
+    // ScoreEvaluatorをリセット
+    this.scoreEvaluator.reset();
 
     // カウントダウンを開始
     this.startCountdown();
@@ -438,39 +442,27 @@ export class PianoPracticeApp {
     // 鍵盤のハイライトを開始
     this.uiRenderer.setKeyPressed(note, true);
 
-    // TODO: GameEngineの実装後に演奏評価処理を追加
-    // const result = this.gameEngine.processNoteInput(note, toneTime);
+    // ゲーム中の場合のみ評価処理
+    if (this.currentGameState.phase === GamePhase.PLAYING) {
+      // ScoreEvaluatorで評価
+      const evaluation = this.scoreEvaluator.evaluateInput(note, this.currentGameState.currentTime, this.currentNotes);
 
-    // 仮のスコア結果を作成（GameEngine実装まで）
-    const mockResult: ScoreResult = {
-      isCorrect: true,
-      timingAccuracy: 0.9,
-      points: 100,
-      feedback: 'perfect'
-    };
+      // 音声フィードバックを再生
+      if (evaluation.isHit) {
+        // 正解時：押したノートの音程を短く再生
+        this.audioFeedbackManager.playNoteSound(note, 0.2);
+        console.log(`✅ Hit! Note ${note}`);
+      } else {
+        console.log(`❌ Miss: Note ${note} (no matching target)`);
+      }
 
-    // 音声フィードバックを再生（演奏時のフィードバック）
-    if (mockResult.isCorrect) {
-      // 正解時：押したノートの音程を短く再生（楽譜の自動再生と区別）
-      this.audioFeedbackManager.playNoteSound(note, 0.2);
-    } else {
-      // 不正解時：エラー音を再生
-      this.audioFeedbackManager.playErrorSound();
+      // スコア表示を更新
+      const scoreInfo = this.scoreEvaluator.getScore();
+      this.currentGameState.score = scoreInfo.correct;
+      this.currentGameState.accuracy = scoreInfo.accuracy;
+      this.updateGameStateDisplay();
     }
 
-    // UIRendererで視覚的フィードバックを表示
-    const noteObj: Note = {
-      pitch: note,
-      startTime: Date.now(),
-      duration: 500,
-      velocity: velocity
-    };
-
-    this.uiRenderer.showNoteHit(noteObj, mockResult);
-
-    // スコアを更新（仮）
-    this.currentGameState.score += mockResult.points;
-    this.updateGameStateDisplay();
   }
 
   private handleNoteOff(note: number, toneTime: number): void {
@@ -491,6 +483,9 @@ export class PianoPracticeApp {
       if (this.currentGameState.phase === GamePhase.PLAYING && this.musicalTimeManager.isStarted()) {
         // 音楽的時間管理から現在時刻を取得
         this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
+        
+        // ScoreEvaluatorでアクティブノートを更新
+        this.scoreEvaluator.updateActiveNotes(this.currentGameState.currentTime, this.currentNotes);
         
         // 演奏ガイドを更新
         this.updatePlayingGuide();
@@ -1032,11 +1027,14 @@ export class PianoPracticeApp {
       const firstLoop = this.loopStats[0];
       const lastLoop = this.loopStats[this.loopStats.length - 1];
       
-      const scoreImprovement = lastLoop.score - firstLoop.score;
-      const accuracyImprovement = ((lastLoop.accuracy - firstLoop.accuracy) * 100).toFixed(1);
-      
-      console.log(`Score improvement: ${scoreImprovement > 0 ? '+' : ''}${scoreImprovement}`);
-      console.log(`Accuracy improvement: ${accuracyImprovement > 0 ? '+' : ''}${accuracyImprovement}%`);
+      if (firstLoop && lastLoop) {
+        const scoreImprovement = lastLoop.score - firstLoop.score;
+        const accuracyImprovement = ((lastLoop.accuracy - firstLoop.accuracy) * 100).toFixed(1);
+        const accuracyImprovementNum = parseFloat(accuracyImprovement);
+        
+        console.log(`Score improvement: ${scoreImprovement > 0 ? '+' : ''}${scoreImprovement}`);
+        console.log(`Accuracy improvement: ${accuracyImprovementNum > 0 ? '+' : ''}${accuracyImprovement}%`);
+      }
     }
     
     // UIに統計情報を表示（簡易版）
