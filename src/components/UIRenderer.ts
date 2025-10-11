@@ -477,11 +477,7 @@ export class UIRenderer {
       this.ctx.strokeRect(x - noteWidth / 2, y, noteWidth, noteHeight);
     }
 
-    // ノート名を表示
-    this.ctx.fillStyle = this.getContrastColor(noteColor);
-    this.ctx.font = isBlackKey ? '10px Arial' : '12px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(this.midiNoteToName(note.pitch), x, y + 15);
+
 
     // ベロシティインジケーター
     if (note.velocity && note.velocity < 127) {
@@ -569,15 +565,7 @@ export class UIRenderer {
         this.ctx!.lineWidth = lineWidth;
         this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
 
-        // ノート名を表示（小さなフォントで）
-        this.ctx!.fillStyle = '#000000';
-        this.ctx!.font = 'bold 8px Arial'; // フォントサイズを小さく
-        this.ctx!.textAlign = 'center';
-        this.ctx!.fillText(
-          this.midiNoteToName(midiNote),
-          x + this.keyboardLayout.whiteKeyWidth / 2,
-          keyboardY + keyboardHeight - 6
-        );
+
 
         whiteKeyIndex++;
       }
@@ -643,15 +631,7 @@ export class UIRenderer {
         this.ctx!.lineWidth = lineWidth;
         this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
 
-        // ノート名を表示（白色で見やすく、小さなフォント）
-        this.ctx!.fillStyle = '#ffffff';
-        this.ctx!.font = 'bold 7px Arial'; // フォントサイズを小さく
-        this.ctx!.textAlign = 'center';
-        this.ctx!.fillText(
-          this.midiNoteToName(midiNote),
-          x + this.keyboardLayout.blackKeyWidth / 2,
-          keyboardY + this.keyboardLayout.blackKeyHeight - 4
-        );
+
       }
     }
   }
