@@ -166,6 +166,9 @@ export class PianoPracticeApp {
     // 音量調整コントロール
     this.setupVolumeControls();
 
+    // ループ練習コントロール
+    this.setupLoopControls();
+
     console.log('Event listeners setup completed');
   }
 
@@ -351,6 +354,10 @@ export class PianoPracticeApp {
     // 再生済みノートをクリア
     this.playedNotes.clear();
 
+    // ループ統計をクリア
+    this.loopCount = 0;
+    this.loopStats = [];
+
     this.updateGameStateDisplay();
 
     // TODO: GameEngineの実装後に停止処理を追加
@@ -487,6 +494,9 @@ export class PianoPracticeApp {
         
         // 演奏ガイドを更新
         this.updatePlayingGuide();
+        
+        // 楽譜終了とループ処理をチェック
+        this.checkForLoopRestart();
       }
 
       // UIRendererで画面を描画
@@ -756,6 +766,12 @@ export class PianoPracticeApp {
   // 既に再生したノートを追跡
   private playedNotes = new Set<string>();
 
+  // ループ練習機能
+  private isLoopEnabled = false;
+  private loopCount = 0; // 現在のループ回数
+  private maxLoops = 3; // 最大ループ回数（0 = 無限）
+  private loopStats: Array<{ score: number; accuracy: number; completedAt: number }> = [];
+
   /**
    * 演奏ガイドを更新
    */
@@ -895,6 +911,216 @@ export class PianoPracticeApp {
    */
   public isAudioMuted(): boolean {
     return this.audioFeedbackManager.isMutedState();
+  }
+
+  /**
+   * 楽譜終了とループ処理をチェック
+   */
+  private checkForLoopRestart(): void {
+    if (this.currentNotes.length === 0) return;
+
+    const currentTime = this.currentGameState.currentTime;
+    
+    // 最後のノートの終了時刻を取得
+    const lastNote = this.currentNotes[this.currentNotes.length - 1];
+    if (!lastNote) return;
+    
+    const songEndTime = lastNote.startTime + lastNote.duration;
+    
+    // 楽譜が終了したかチェック（1秒のマージン）
+    if (currentTime >= songEndTime + 1000) {
+      console.log('Song completed, checking for loop restart...');
+      
+      if (this.isLoopEnabled) {
+        this.handleLoopRestart();
+      } else {
+        this.handleSongComplete();
+      }
+    }
+  }
+
+  /**
+   * ループ再開処理
+   */
+  private handleLoopRestart(): void {
+    // 現在のループの統計を記録
+    this.recordLoopStats();
+    
+    this.loopCount++;
+    console.log(`Starting loop ${this.loopCount}/${this.maxLoops === 0 ? '∞' : this.maxLoops}`);
+    
+    // ループ状態表示を更新
+    this.updateLoopStatus();
+    
+    // 最大ループ回数に達した場合は終了
+    if (this.maxLoops > 0 && this.loopCount >= this.maxLoops) {
+      console.log('Maximum loops reached, ending practice session');
+      this.handleSongComplete();
+      return;
+    }
+    
+    // ループ再開
+    this.restartSong();
+  }
+
+  /**
+   * 楽曲完了処理
+   */
+  private handleSongComplete(): void {
+    console.log('Practice session completed');
+    
+    // 最終統計を記録
+    this.recordLoopStats();
+    
+    // 統計情報を表示
+    this.showLoopStatistics();
+    
+    // ゲームを停止
+    this.handleStop();
+  }
+
+  /**
+   * 楽曲を最初から再開
+   */
+  private restartSong(): void {
+    // 音楽的時間管理をリセット
+    this.musicalTimeManager.stop();
+    this.musicalTimeManager.start();
+    
+    // ゲーム状態をリセット（スコアは保持）
+    this.currentGameState.currentTime = 0;
+    
+    // 再生済みノートをクリア
+    this.playedNotes.clear();
+    
+    // 演奏ガイドをクリア
+    this.uiRenderer.clearTargetKeys();
+    
+    console.log('Song restarted for loop practice');
+  }
+
+  /**
+   * ループ統計を記録
+   */
+  private recordLoopStats(): void {
+    this.loopStats.push({
+      score: this.currentGameState.score,
+      accuracy: this.currentGameState.accuracy,
+      completedAt: Date.now()
+    });
+  }
+
+  /**
+   * ループ統計を表示
+   */
+  private showLoopStatistics(): void {
+    if (this.loopStats.length === 0) return;
+    
+    const totalScore = this.loopStats.reduce((sum, stat) => sum + stat.score, 0);
+    const averageScore = Math.round(totalScore / this.loopStats.length);
+    
+    const totalAccuracy = this.loopStats.reduce((sum, stat) => sum + stat.accuracy, 0);
+    const averageAccuracy = (totalAccuracy / this.loopStats.length * 100).toFixed(1);
+    
+    console.log('=== Loop Practice Statistics ===');
+    console.log(`Loops completed: ${this.loopStats.length}`);
+    console.log(`Average score: ${averageScore}`);
+    console.log(`Average accuracy: ${averageAccuracy}%`);
+    
+    // 改善度を計算（最初と最後の比較）
+    if (this.loopStats.length > 1) {
+      const firstLoop = this.loopStats[0];
+      const lastLoop = this.loopStats[this.loopStats.length - 1];
+      
+      const scoreImprovement = lastLoop.score - firstLoop.score;
+      const accuracyImprovement = ((lastLoop.accuracy - firstLoop.accuracy) * 100).toFixed(1);
+      
+      console.log(`Score improvement: ${scoreImprovement > 0 ? '+' : ''}${scoreImprovement}`);
+      console.log(`Accuracy improvement: ${accuracyImprovement > 0 ? '+' : ''}${accuracyImprovement}%`);
+    }
+    
+    // UIに統計情報を表示（簡易版）
+    this.showStatsInUI(averageScore, parseFloat(averageAccuracy));
+  }
+
+  /**
+   * UIに統計情報を表示
+   */
+  private showStatsInUI(averageScore: number, averageAccuracy: number): void {
+    // 簡易的にアラートで表示（後でより良いUIに変更可能）
+    const message = `ループ練習完了！\n` +
+                   `完了回数: ${this.loopStats.length}\n` +
+                   `平均スコア: ${averageScore}\n` +
+                   `平均正解率: ${averageAccuracy}%`;
+    
+    setTimeout(() => {
+      alert(message);
+    }, 500);
+  }
+
+  /**
+   * ループ練習を有効/無効にする
+   */
+  public setLoopEnabled(enabled: boolean): void {
+    this.isLoopEnabled = enabled;
+    console.log(`Loop practice ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * 最大ループ回数を設定
+   */
+  public setMaxLoops(maxLoops: number): void {
+    this.maxLoops = maxLoops;
+    console.log(`Max loops set to: ${maxLoops === 0 ? 'infinite' : maxLoops}`);
+  }
+
+  /**
+   * ループ練習コントロールを設定
+   */
+  private setupLoopControls(): void {
+    const loopEnabled = document.getElementById('loopEnabled') as HTMLInputElement;
+    const loopCount = document.getElementById('loopCount') as HTMLSelectElement;
+    const loopStatus = document.getElementById('loopStatus');
+
+    if (loopEnabled) {
+      loopEnabled.addEventListener('change', () => {
+        this.setLoopEnabled(loopEnabled.checked);
+        this.updateLoopStatus();
+      });
+    }
+
+    if (loopCount) {
+      loopCount.addEventListener('change', () => {
+        const maxLoops = parseInt(loopCount.value);
+        this.setMaxLoops(maxLoops);
+        this.updateLoopStatus();
+      });
+
+      // 初期値を設定
+      this.setMaxLoops(parseInt(loopCount.value));
+    }
+
+    // 初期状態を更新
+    this.updateLoopStatus();
+  }
+
+  /**
+   * ループ状態表示を更新
+   */
+  private updateLoopStatus(): void {
+    const loopStatus = document.getElementById('loopStatus');
+    if (!loopStatus) return;
+
+    if (this.isLoopEnabled) {
+      const maxText = this.maxLoops === 0 ? '無限' : `${this.maxLoops}回`;
+      if (this.loopCount > 0) {
+        loopStatus.textContent = `${this.loopCount}/${maxText}`;
+      } else {
+        loopStatus.textContent = `設定: ${maxText}`;
+      }
+    } else {
+      loopStatus.textContent = '';
+    }
   }
 
   /**
