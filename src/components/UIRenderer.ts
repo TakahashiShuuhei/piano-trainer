@@ -66,6 +66,9 @@ export class UIRenderer {
   // 現在押されている鍵盤の追跡
   private pressedKeys = new Set<number>();
 
+  // 演奏ガイド用の鍵盤状態
+  private currentTargetKeys = new Set<number>(); // 今押すべき鍵盤（ノート期間中のみ）
+
   /**
    * Canvasエレメントを初期化し、描画コンテキストを取得
    */
@@ -166,6 +169,21 @@ export class UIRenderer {
    */
   public setBPM(bpm: number): void {
     this.currentBPM = bpm;
+  }
+
+  /**
+   * 演奏ガイド：現在押すべき鍵盤を設定
+   */
+  public setCurrentTargetKeys(keys: number[]): void {
+    this.currentTargetKeys.clear();
+    keys.forEach(key => this.currentTargetKeys.add(key));
+  }
+
+  /**
+   * 演奏ガイドをクリア
+   */
+  public clearTargetKeys(): void {
+    this.currentTargetKeys.clear();
   }
 
   /**
@@ -411,6 +429,9 @@ export class UIRenderer {
     const noteWidth = isBlackKey ? this.keyboardLayout.blackKeyWidth * 0.8 : this.keyboardLayout.whiteKeyWidth * 0.8;
     const noteHeight = 25;
 
+    // 演奏ガイド状態をチェック
+    const isCurrentTarget = this.currentTargetKeys.has(note.pitch);
+
     // ノートの色を状態に応じて決定
     let noteColor: string;
     switch (state) {
@@ -421,13 +442,19 @@ export class UIRenderer {
         noteColor = currentColors.error;
         break;
       default:
-        noteColor = isBlackKey ? currentColors.blackKeyNote : currentColors.whiteKeyNote;
+        if (isCurrentTarget) {
+          // 今押すべきノートは緑で強調
+          noteColor = currentColors.success;
+        } else {
+          // 通常のノート
+          noteColor = isBlackKey ? currentColors.blackKeyNote : currentColors.whiteKeyNote;
+        }
     }
 
-    // アクティブ状態の場合は光らせる
-    if (isActive && state === 'pending') {
+    // アクティブ状態またはターゲット状態の場合は光らせる
+    if ((isActive && state === 'pending') || isCurrentTarget) {
       this.ctx.shadowColor = noteColor;
-      this.ctx.shadowBlur = 10;
+      this.ctx.shadowBlur = isCurrentTarget ? 15 : 10;
     }
 
     this.ctx.fillStyle = noteColor;
@@ -441,6 +468,13 @@ export class UIRenderer {
 
     // 影をリセット
     this.ctx.shadowBlur = 0;
+
+    // ターゲットノートの場合は境界線を追加
+    if (isCurrentTarget) {
+      this.ctx.strokeStyle = currentColors.success;
+      this.ctx.lineWidth = 3;
+      this.ctx.strokeRect(x - noteWidth / 2, y, noteWidth, noteHeight);
+    }
 
     // ノート名を表示
     this.ctx.fillStyle = this.getContrastColor(noteColor);
@@ -499,14 +533,39 @@ export class UIRenderer {
       if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
         const x = whiteKeyIndex * this.keyboardLayout.whiteKeyWidth;
 
-        // 白鍵を描画（押されている場合はハイライト）
+        // 白鍵を描画（押下状態とガイド状態を考慮）
         const isPressed = this.pressedKeys.has(midiNote);
-        this.ctx!.fillStyle = isPressed ? currentColors.accent : currentColors.whiteKey;
+        const isCurrentTarget = this.currentTargetKeys.has(midiNote);
+
+        let keyColor: string;
+        if (isPressed) {
+          keyColor = currentColors.accent; // 押されている（青）
+        } else if (isCurrentTarget) {
+          keyColor = currentColors.success; // 今押すべき（緑）
+        } else {
+          keyColor = currentColors.whiteKey; // 通常（白）
+        }
+
+        this.ctx!.fillStyle = keyColor;
         this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
 
-        // 境界線
-        this.ctx!.strokeStyle = isPressed ? currentColors.primary : currentColors.secondary;
-        this.ctx!.lineWidth = isPressed ? 2 : 1;
+        // 境界線（ガイド状態に応じて調整）
+        let strokeColor: string;
+        let lineWidth: number;
+        
+        if (isPressed) {
+          strokeColor = currentColors.primary;
+          lineWidth = 3;
+        } else if (isCurrentTarget) {
+          strokeColor = currentColors.success;
+          lineWidth = 3;
+        } else {
+          strokeColor = currentColors.secondary;
+          lineWidth = 1;
+        }
+
+        this.ctx!.strokeStyle = strokeColor;
+        this.ctx!.lineWidth = lineWidth;
         this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
 
         // ノート名を表示（小さなフォントで）
@@ -548,14 +607,39 @@ export class UIRenderer {
         const x = (whiteKeyIndex - 1) * this.keyboardLayout.whiteKeyWidth + 
                   this.keyboardLayout.whiteKeyWidth - this.keyboardLayout.blackKeyWidth / 2;
 
-        // 黒鍵を描画（押されている場合はハイライト）
+        // 黒鍵を描画（押下状態とガイド状態を考慮）
         const isPressed = this.pressedKeys.has(midiNote);
-        this.ctx!.fillStyle = isPressed ? currentColors.accent : currentColors.blackKey;
+        const isCurrentTarget = this.currentTargetKeys.has(midiNote);
+
+        let keyColor: string;
+        if (isPressed) {
+          keyColor = currentColors.accent; // 押されている（青）
+        } else if (isCurrentTarget) {
+          keyColor = currentColors.success; // 今押すべき（緑）
+        } else {
+          keyColor = currentColors.blackKey; // 通常（黒）
+        }
+
+        this.ctx!.fillStyle = keyColor;
         this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
 
-        // 境界線
-        this.ctx!.strokeStyle = currentColors.primary;
-        this.ctx!.lineWidth = isPressed ? 3 : 1;
+        // 境界線（ガイド状態に応じて調整）
+        let strokeColor: string;
+        let lineWidth: number;
+        
+        if (isPressed) {
+          strokeColor = currentColors.primary;
+          lineWidth = 4;
+        } else if (isCurrentTarget) {
+          strokeColor = currentColors.success;
+          lineWidth = 3;
+        } else {
+          strokeColor = currentColors.primary;
+          lineWidth = 1;
+        }
+
+        this.ctx!.strokeStyle = strokeColor;
+        this.ctx!.lineWidth = lineWidth;
         this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
 
         // ノート名を表示（白色で見やすく、小さなフォント）

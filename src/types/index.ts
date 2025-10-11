@@ -105,6 +105,8 @@ export interface UIRenderer {
   showMetronome(beat: number): void;
   setTheme(theme: 'light' | 'dark'): void;
   setBPM(bpm: number): void;
+  setCurrentTargetKeys(keys: number[]): void;
+  clearTargetKeys(): void;
   startAnimationLoop(): void;
   stopAnimationLoop(): void;
   setKeyPressed(pitch: number, pressed: boolean): void;

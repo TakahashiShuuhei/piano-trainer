@@ -356,6 +356,9 @@ export class PianoPracticeApp {
     this.currentNotes = [];
     this.musicalNotes = [];
 
+    // 演奏ガイドをクリア
+    this.uiRenderer.clearTargetKeys();
+
     this.updateGameStateDisplay();
 
     // TODO: GameEngineの実装後に停止処理を追加
@@ -480,6 +483,9 @@ export class PianoPracticeApp {
       if (this.currentGameState.phase === GamePhase.PLAYING && this.musicalTimeManager.isStarted()) {
         // 音楽的時間管理から現在時刻を取得
         this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
+        
+        // 演奏ガイドを更新
+        this.updatePlayingGuide();
       }
 
       // UIRendererで画面を描画
@@ -744,6 +750,24 @@ export class PianoPracticeApp {
   public seekToMusicalPosition(beats: number): void {
     this.musicalTimeManager.seekToMusicalPosition(beats);
     console.log(`Seeked to beat ${beats.toFixed(2)}`);
+  }
+
+  /**
+   * 演奏ガイドを更新
+   */
+  private updatePlayingGuide(): void {
+    const currentTime = this.currentGameState.currentTime;
+
+    // 現在演奏中のノート（開始時刻から終了時刻まで）
+    const activeNotes = this.currentNotes.filter(note => {
+      const noteStartTime = note.startTime;
+      const noteEndTime = note.startTime + note.duration;
+      return currentTime >= noteStartTime && currentTime <= noteEndTime;
+    });
+
+    // 現在のターゲット鍵盤を設定（ノート期間中のみ）
+    const currentTargetKeys = activeNotes.map(note => note.pitch);
+    this.uiRenderer.setCurrentTargetKeys(currentTargetKeys);
   }
 
   /**
