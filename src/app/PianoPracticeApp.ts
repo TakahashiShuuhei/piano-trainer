@@ -31,6 +31,9 @@ export class PianoPracticeApp {
 
   // ゲーム開始時刻
   private gameStartTime = 0;
+  // 一時停止関連の時間管理
+  private pausedTime = 0; // 一時停止開始時刻
+  private totalPausedDuration = 0; // 累積一時停止時間
 
   // 現在のゲーム状態（UIRenderer統合用）
   private currentGameState: GameState = {
@@ -207,6 +210,10 @@ export class PianoPracticeApp {
 
     // ゲーム開始時刻を記録
     this.gameStartTime = Date.now();
+    
+    // 一時停止関連の時間をリセット
+    this.pausedTime = 0;
+    this.totalPausedDuration = 0;
 
     // ゲーム状態を開始に変更
     this.currentGameState.isPlaying = true;
@@ -222,16 +229,24 @@ export class PianoPracticeApp {
 
   private handlePause(): void {
     if (!this.isInitialized) return;
-    console.log('Pausing practice session...');
 
-    // ゲーム状態を一時停止に変更
-    this.currentGameState.isPlaying = false;
+    if (this.currentGameState.isPlaying) {
+      // 一時停止
+      console.log('Pausing practice session...');
+      this.pausedTime = Date.now();
+      this.currentGameState.isPlaying = false;
+    } else {
+      // 再開
+      console.log('Resuming practice session...');
+      if (this.pausedTime > 0) {
+        // 一時停止していた時間を累積に追加
+        this.totalPausedDuration += Date.now() - this.pausedTime;
+        this.pausedTime = 0;
+      }
+      this.currentGameState.isPlaying = true;
+    }
+
     this.updateGameStateDisplay();
-
-    // 一時停止時は時間の進行を停止（次回開始時に調整が必要）
-    // TODO: 一時停止からの再開時の時間調整を実装
-
-    // TODO: GameEngineの実装後に一時停止処理を追加
   }
 
   private handleStop(): void {
@@ -246,6 +261,10 @@ export class PianoPracticeApp {
 
     // ゲーム開始時刻をリセット
     this.gameStartTime = 0;
+    
+    // 一時停止関連の時間をリセット
+    this.pausedTime = 0;
+    this.totalPausedDuration = 0;
 
     // ノートをクリア
     this.currentNotes = [];
@@ -284,7 +303,7 @@ export class PianoPracticeApp {
 
     const accuracyElement = document.getElementById('accuracyValue');
     if (accuracyElement) {
-      accuracyElement.textContent = `${Math.round(state.accuracy)}%`;
+      accuracyElement.textContent = `${Math.round(state.accuracy * 100)}%`;
     }
 
     // ボタンの状態更新
@@ -293,9 +312,27 @@ export class PianoPracticeApp {
     const stopBtn = document.getElementById('stopBtn') as HTMLButtonElement;
 
     if (startBtn && pauseBtn && stopBtn) {
-      startBtn.disabled = state.isPlaying;
-      pauseBtn.disabled = !state.isPlaying;
-      stopBtn.disabled = !state.isPlaying;
+      // ゲーム開始前
+      if (this.gameStartTime === 0) {
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+        stopBtn.disabled = true;
+        pauseBtn.textContent = '一時停止';
+      }
+      // ゲーム中
+      else if (state.isPlaying) {
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        stopBtn.disabled = false;
+        pauseBtn.textContent = '一時停止';
+      }
+      // 一時停止中
+      else {
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        stopBtn.disabled = false;
+        pauseBtn.textContent = '再開';
+      }
     }
   }
 
@@ -347,8 +384,8 @@ export class PianoPracticeApp {
     const render = () => {
       // ゲームが再生中の場合、時間を進める
       if (this.currentGameState.isPlaying && this.gameStartTime > 0) {
-        // 実時間の経過を取得
-        const realTimeElapsed = Date.now() - this.gameStartTime;
+        // 実時間の経過を取得（一時停止時間を除外）
+        const realTimeElapsed = Date.now() - this.gameStartTime - this.totalPausedDuration;
         this.currentGameState.currentTime = realTimeElapsed;
       }
 
