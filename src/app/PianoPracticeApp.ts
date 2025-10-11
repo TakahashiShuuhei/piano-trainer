@@ -115,7 +115,7 @@ export class PianoPracticeApp {
       // 描画ループを開始
       this.startRenderLoop();
 
-      // TODO: 他のコンポーネントの実装後に初期化処理を追加
+
     } catch (error) {
       console.error('Component initialization failed:', error);
       throw error;
@@ -170,7 +170,7 @@ export class PianoPracticeApp {
   }
 
   private loadInitialContent(): void {
-    // TODO: ContentManagerの実装後に初期コンテンツを読み込み
+    // TODO: URLパラメータからコンテンツを読み込み（タスク4.2）
 
   }
 
@@ -360,7 +360,7 @@ export class PianoPracticeApp {
 
     this.updateGameStateDisplay();
 
-    // TODO: GameEngineの実装後に停止処理を追加
+
   }
 
   private handleResize(): void {
@@ -369,13 +369,14 @@ export class PianoPracticeApp {
   }
 
   private updateMidiStatus(connected: boolean): void {
-    const statusElement = document.getElementById('midiStatus');
-    if (statusElement) {
-      statusElement.textContent = connected ? 'MIDI接続済み' : 'MIDI未接続';
-      statusElement.className = connected ? 'midi-status midi-connected' : 'midi-status midi-disconnected';
+    // MIDI接続ボタンのテキストを変更
+    const connectMidiBtn = document.getElementById('connectMidiBtn') as HTMLButtonElement;
+    if (connectMidiBtn) {
+      connectMidiBtn.textContent = connected ? 'MIDI接続済み' : 'MIDI接続';
+      connectMidiBtn.disabled = connected; // 接続済みの場合は無効化
     }
 
-    // ボタンの有効/無効を切り替え
+    // 開始ボタンの有効/無効を切り替え
     const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
     if (startBtn) {
       startBtn.disabled = !connected;
@@ -383,16 +384,7 @@ export class PianoPracticeApp {
   }
 
   private updateGameState(state: GameState): void {
-    // スコア表示の更新
-    const scoreElement = document.getElementById('scoreValue');
-    if (scoreElement) {
-      scoreElement.textContent = state.score.toString();
-    }
-
-    const accuracyElement = document.getElementById('accuracyValue');
-    if (accuracyElement) {
-      accuracyElement.textContent = `${Math.round(state.accuracy * 100)}%`;
-    }
+    // 削除されたスコア表示要素への参照を削除
 
     // ボタンの状態更新
     const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
@@ -467,7 +459,7 @@ export class PianoPracticeApp {
     // 鍵盤のハイライトを終了
     this.uiRenderer.setKeyPressed(note, false);
 
-    // TODO: 必要に応じてNote Offの処理を追加
+
   }
 
   /**
@@ -657,14 +649,9 @@ export class PianoPracticeApp {
    */
   private updateBPMDisplay(bpm: number): void {
     const bpmDisplay = document.getElementById('bpmDisplay');
-    const bpmValue = document.getElementById('bpmValue');
 
     if (bpmDisplay) {
       bpmDisplay.textContent = bpm.toString();
-    }
-
-    if (bpmValue) {
-      bpmValue.textContent = bpm.toString();
     }
   }
 
