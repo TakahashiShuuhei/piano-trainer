@@ -112,7 +112,6 @@ export interface MetronomeService {
   start(bpm: number): void;
   stop(): void;
   setBPM(bpm: number): void;
-  onBeat(callback: (beat: number, measure: number) => void): void;
   setVolume(volume: number): void;
   getTransport(): any; // Tone.Transport type
   scheduleCallback(callback: () => void, time: string): void;
