@@ -304,7 +304,7 @@ export class UIRenderer {
     notes.forEach(note => {
       // 表示範囲内のノートのみ処理
       const showTime = note.startTime - 2000;
-      const hideTime = note.startTime + note.duration;
+      const hideTime = note.startTime + 1000; // ノートが鍵盤を通り過ぎるまで表示
 
       if (currentTime >= showTime && currentTime <= hideTime) {
         visibleNotesCount++;
@@ -338,10 +338,27 @@ export class UIRenderer {
 
     const width = this.canvas.width / window.devicePixelRatio;
 
+    // ノートの高さを事前に計算
+    const isBlackKey = this.isBlackKey(note.pitch);
+    const baseDuration = 500; // 基準となるduration（ミリ秒）
+    const minHeight = 20;
+    const maxHeight = 100;
+    const durationRatio = Math.min(note.duration / baseDuration, 3); // 最大3倍まで
+    const noteHeight = Math.max(minHeight, Math.min(maxHeight, minHeight + (durationRatio * 30)));
+
     // ノートの表示タイミングを計算
     const showTime = note.startTime - 2000;
-    const progress = Math.max(0, Math.min(1, (currentTime - showTime) / 2000));
-    const y = progress * noteAreaHeight;
+    const progress = Math.max(0, (currentTime - showTime) / 2000); // 上限を削除してノートが下に流れ続ける
+    
+    // ノートの下端がタイミングラインに到達するタイミングで音が鳴るように調整
+    // ノートの上端の位置を計算し、下端がタイミングラインに到達する時に音が鳴る
+    const y = progress * noteAreaHeight - noteHeight;
+
+    // ノートが画面外に出た場合は描画しない
+    const height = this.canvas.height / window.devicePixelRatio;
+    if (y > height) {
+      return;
+    }
 
     // ノートの水平位置を計算
     const x = this.getPreciseNoteXPosition(note.pitch, width);
@@ -350,11 +367,8 @@ export class UIRenderer {
     const noteId = `${note.pitch}-${note.startTime}`;
     const state = this.noteStates.get(noteId) || 'pending';
 
-    // ノートトレイルを描画
-    this.drawNoteTrail(x, y, progress);
-
-    // ノートを描画
-    this.drawNote(x, y, note, state, currentTime >= note.startTime);
+    // ノートを描画（durationに応じた高さで）
+    this.drawNote(x, y, note, state, currentTime >= note.startTime, noteHeight);
   }
 
   /**
@@ -368,8 +382,17 @@ export class UIRenderer {
 
     // コードの表示タイミングを計算
     const showTime = timing - 2000;
-    const progress = Math.max(0, Math.min(1, (currentTime - showTime) / 2000));
-    const y = progress * noteAreaHeight;
+    const progress = Math.max(0, (currentTime - showTime) / 2000); // 上限を削除してノートが下に流れ続ける
+    
+    // ノートの高さを計算（コードの場合はデフォルト値を使用）
+    const noteHeight = 25;
+    const y = progress * noteAreaHeight - noteHeight;
+
+    // ノートが画面外に出た場合は描画しない
+    const height = this.canvas.height / window.devicePixelRatio;
+    if (y > height) {
+      return;
+    }
 
     // コードの範囲を計算
     const positions = notes.map(note => this.getPreciseNoteXPosition(note.pitch, width));
@@ -378,7 +401,7 @@ export class UIRenderer {
 
     // コード背景を描画
     this.ctx.fillStyle = currentColors.chord + '20'; // 透明度20%
-    this.ctx.fillRect(minX - 10, y - 5, maxX - minX + 20, 30);
+    this.ctx.fillRect(minX - 10, y - 5, maxX - minX + 20, noteHeight + 10);
 
     // 個別のノートを描画
     notes.forEach(note => {
@@ -386,7 +409,7 @@ export class UIRenderer {
       const noteId = `${note.pitch}-${note.startTime}`;
       const state = this.noteStates.get(noteId) || 'pending';
 
-      this.drawNote(x, y, note, state, currentTime >= timing);
+      this.drawNote(x, y, note, state, currentTime >= timing, noteHeight);
     });
 
     // コード名を表示
@@ -399,28 +422,12 @@ export class UIRenderer {
     }
   }
 
-  /**
-   * ノートトレイルを描画
-   */
-  private drawNoteTrail(x: number, y: number, progress: number): void {
-    if (!this.ctx || progress <= 0) return;
 
-    const currentColors = this.colors[this.theme];
-    const trailLength = 50;
-
-    this.ctx.strokeStyle = currentColors.noteTrail;
-    this.ctx.lineWidth = 2;
-
-    this.ctx.beginPath();
-    this.ctx.moveTo(x, Math.max(0, y - trailLength));
-    this.ctx.lineTo(x, y);
-    this.ctx.stroke();
-  }
 
   /**
    * 単一のノートを描画
    */
-  private drawNote(x: number, y: number, note: Note, state: 'pending' | 'hit' | 'missed', isActive: boolean): void {
+  private drawNote(x: number, y: number, note: Note, state: 'pending' | 'hit' | 'missed', isActive: boolean, noteHeight: number = 25): void {
     if (!this.ctx) return;
 
     const currentColors = this.colors[this.theme];
@@ -428,12 +435,11 @@ export class UIRenderer {
 
     // ノートサイズを鍵盤タイプに応じて調整
     const noteWidth = isBlackKey ? this.keyboardLayout.blackKeyWidth * 0.8 : this.keyboardLayout.whiteKeyWidth * 0.8;
-    const noteHeight = 25;
 
     // 演奏ガイド状態をチェック
     const isCurrentTarget = this.currentTargetKeys.has(note.pitch);
 
-    // ノートの色を状態に応じて決定
+    // ノートの色を状態に応じて決定（ターゲット状態でも色は変更しない）
     let noteColor: string;
     switch (state) {
       case 'hit':
@@ -443,19 +449,14 @@ export class UIRenderer {
         noteColor = currentColors.error;
         break;
       default:
-        if (isCurrentTarget) {
-          // 今押すべきノートは緑で強調
-          noteColor = currentColors.success;
-        } else {
-          // 通常のノート
-          noteColor = isBlackKey ? currentColors.blackKeyNote : currentColors.whiteKeyNote;
-        }
+        // 通常のノート（ターゲット状態でも色は変更しない）
+        noteColor = isBlackKey ? currentColors.blackKeyNote : currentColors.whiteKeyNote;
     }
 
-    // アクティブ状態またはターゲット状態の場合は光らせる
-    if ((isActive && state === 'pending') || isCurrentTarget) {
+    // アクティブ状態の場合のみ光らせる（ターゲット状態では光らせない）
+    if (isActive && state === 'pending') {
       this.ctx.shadowColor = noteColor;
-      this.ctx.shadowBlur = isCurrentTarget ? 15 : 10;
+      this.ctx.shadowBlur = 10;
     }
 
     this.ctx.fillStyle = noteColor;
@@ -469,15 +470,6 @@ export class UIRenderer {
 
     // 影をリセット
     this.ctx.shadowBlur = 0;
-
-    // ターゲットノートの場合は境界線を追加
-    if (isCurrentTarget) {
-      this.ctx.strokeStyle = currentColors.success;
-      this.ctx.lineWidth = 3;
-      this.ctx.strokeRect(x - noteWidth / 2, y, noteWidth, noteHeight);
-    }
-
-
 
     // ベロシティインジケーター
     if (note.velocity && note.velocity < 127) {

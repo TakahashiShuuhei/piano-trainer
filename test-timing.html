@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ノートタイミングテスト</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border: 1px solid #333;
+            background-color: #2a2a2a;
+            display: block;
+            margin: 20px auto;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            background-color: #4dabf7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #339af0;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        .info {
+            text-align: center;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>ノートタイミングテスト</h1>
+    <p>修正後：ノートの下端が鍵盤の上端（タイミングライン）に到達するタイミングで音が鳴ります</p>
+    
+    <div class="controls">
+        <button id="startTest">テスト開始</button>
+        <button id="stopTest">停止</button>
+    </div>
+    
+    <div class="info">
+        <p>キーボードでテスト: A=C4, S=D4, D=E4, F=F4</p>
+        <p id="status">準備完了</p>
+    </div>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script src="dist/bundle.js"></script>
+    <script>
+        // テスト用の簡単なセットアップ
+        document.addEventListener('DOMContentLoaded', async () => {
+            const app = new window.PianoPracticeApp();
+            await app.initialize();
+            
+            const startBtn = document.getElementById('startTest');
+            const stopBtn = document.getElementById('stopTest');
+            const status = document.getElementById('status');
+            
+            startBtn.addEventListener('click', () => {
+                status.textContent = 'テスト実行中...';
+                // アプリの開始ボタンをクリック
+                const appStartBtn = document.getElementById('startBtn');
+                if (appStartBtn) {
+                    appStartBtn.click();
+                }
+            });
+            
+            stopBtn.addEventListener('click', () => {
+                status.textContent = '停止';
+                // アプリの停止ボタンをクリック
+                const appStopBtn = document.getElementById('stopBtn');
+                if (appStopBtn) {
+                    appStopBtn.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
