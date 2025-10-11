@@ -14,6 +14,7 @@ import {
 import { MIDIInputManager } from '../components/MIDIInputManager';
 import { UIRenderer } from '../components/UIRenderer';
 import { BeatTimeConverter } from '../utils/BeatTimeConverter';
+import { MusicalTimeManager } from '../utils/MusicalTimeManager';
 
 export class PianoPracticeApp {
   private gameEngine!: GameEngine;
@@ -27,13 +28,8 @@ export class PianoPracticeApp {
 
   // 音楽的タイミングシステム
   private beatTimeConverter!: IBeatTimeConverter;
+  private musicalTimeManager!: MusicalTimeManager;
   private currentBPM = 120;
-
-  // ゲーム開始時刻
-  private gameStartTime = 0;
-  // 一時停止関連の時間管理
-  private pausedTime = 0; // 一時停止開始時刻
-  private totalPausedDuration = 0; // 累積一時停止時間
 
   // 現在のゲーム状態（UIRenderer統合用）
   private currentGameState: GameState = {
@@ -86,6 +82,7 @@ export class PianoPracticeApp {
     try {
       // 音楽的タイミングシステムの初期化
       this.beatTimeConverter = new BeatTimeConverter(this.currentBPM);
+      this.musicalTimeManager = new MusicalTimeManager(this.currentBPM);
 
       // UIRendererの初期化
       this.uiRenderer = new UIRenderer();
@@ -208,12 +205,8 @@ export class PianoPracticeApp {
     if (!this.isInitialized) return;
     console.log('Starting practice session...');
 
-    // ゲーム開始時刻を記録
-    this.gameStartTime = Date.now();
-    
-    // 一時停止関連の時間をリセット
-    this.pausedTime = 0;
-    this.totalPausedDuration = 0;
+    // 音楽的時間管理を開始
+    this.musicalTimeManager.start();
 
     // ゲーム状態を開始に変更
     this.currentGameState.isPlaying = true;
@@ -233,16 +226,12 @@ export class PianoPracticeApp {
     if (this.currentGameState.isPlaying) {
       // 一時停止
       console.log('Pausing practice session...');
-      this.pausedTime = Date.now();
+      this.musicalTimeManager.pause();
       this.currentGameState.isPlaying = false;
     } else {
       // 再開
       console.log('Resuming practice session...');
-      if (this.pausedTime > 0) {
-        // 一時停止していた時間を累積に追加
-        this.totalPausedDuration += Date.now() - this.pausedTime;
-        this.pausedTime = 0;
-      }
+      this.musicalTimeManager.resume();
       this.currentGameState.isPlaying = true;
     }
 
@@ -253,18 +242,14 @@ export class PianoPracticeApp {
     if (!this.isInitialized) return;
     console.log('Stopping practice session...');
 
+    // 音楽的時間管理を停止
+    this.musicalTimeManager.stop();
+
     // ゲーム状態をリセット
     this.currentGameState.isPlaying = false;
     this.currentGameState.currentTime = 0;
     this.currentGameState.score = 0;
     this.currentGameState.accuracy = 1.0;
-
-    // ゲーム開始時刻をリセット
-    this.gameStartTime = 0;
-    
-    // 一時停止関連の時間をリセット
-    this.pausedTime = 0;
-    this.totalPausedDuration = 0;
 
     // ノートをクリア
     this.currentNotes = [];
@@ -313,7 +298,7 @@ export class PianoPracticeApp {
 
     if (startBtn && pauseBtn && stopBtn) {
       // ゲーム開始前
-      if (this.gameStartTime === 0) {
+      if (!this.musicalTimeManager.isStarted()) {
         startBtn.disabled = false;
         pauseBtn.disabled = true;
         stopBtn.disabled = true;
@@ -383,10 +368,9 @@ export class PianoPracticeApp {
   private startRenderLoop(): void {
     const render = () => {
       // ゲームが再生中の場合、時間を進める
-      if (this.currentGameState.isPlaying && this.gameStartTime > 0) {
-        // 実時間の経過を取得（一時停止時間を除外）
-        const realTimeElapsed = Date.now() - this.gameStartTime - this.totalPausedDuration;
-        this.currentGameState.currentTime = realTimeElapsed;
+      if (this.currentGameState.isPlaying && this.musicalTimeManager.isStarted()) {
+        // 音楽的時間管理から現在時刻を取得
+        this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
       }
 
       // UIRendererで画面を描画
@@ -578,7 +562,7 @@ export class PianoPracticeApp {
   }
 
   /**
-   * BPMを変更
+   * BPMを変更（音楽的位置を保持）
    */
   public setBPM(newBPM: number): void {
     if (newBPM <= 0) {
@@ -587,6 +571,11 @@ export class PianoPracticeApp {
     }
 
     this.currentBPM = newBPM;
+    
+    // 音楽的時間管理でBPMを変更（音楽的位置を保持）
+    this.musicalTimeManager.setBPM(newBPM);
+    
+    // BeatTimeConverterも更新
     this.beatTimeConverter.setBPM(newBPM);
 
     // 既存の音楽的ノートを新しいBPMで再変換
@@ -594,7 +583,7 @@ export class PianoPracticeApp {
       this.updateCurrentNotes();
     }
 
-    console.log(`BPM changed to: ${newBPM}`);
+    console.log(`BPM changed to: ${newBPM} (musical position preserved)`);
   }
 
   /**
@@ -602,6 +591,54 @@ export class PianoPracticeApp {
    */
   public getBPM(): number {
     return this.currentBPM;
+  }
+
+  /**
+   * シークバー用：楽曲の進行度を取得（0-1）
+   */
+  public getProgress(): number {
+    if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+      return 0;
+    }
+    
+    // 最後のノートの終了時刻を楽曲の長さとする
+    const lastNote = this.currentNotes[this.currentNotes.length - 1];
+    if (!lastNote) return 0;
+    
+    const totalDuration = lastNote.startTime + lastNote.duration;
+    return this.musicalTimeManager.getProgress(totalDuration);
+  }
+
+  /**
+   * シークバー用：指定した進行度（0-1）の位置にシーク
+   */
+  public seekToProgress(progress: number): void {
+    if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+      return;
+    }
+    
+    const lastNote = this.currentNotes[this.currentNotes.length - 1];
+    if (!lastNote) return;
+    
+    const totalDuration = lastNote.startTime + lastNote.duration;
+    this.musicalTimeManager.setProgress(progress, totalDuration);
+    
+    console.log(`Seeked to ${(progress * 100).toFixed(1)}%`);
+  }
+
+  /**
+   * シークバー用：指定した音楽的位置（拍数）にシーク
+   */
+  public seekToMusicalPosition(beats: number): void {
+    this.musicalTimeManager.seekToMusicalPosition(beats);
+    console.log(`Seeked to beat ${beats.toFixed(2)}`);
+  }
+
+  /**
+   * デバッグ用：音楽的時間管理の状態を取得
+   */
+  public getTimeDebugInfo(): any {
+    return this.musicalTimeManager.getDebugInfo();
   }
 
   /**
