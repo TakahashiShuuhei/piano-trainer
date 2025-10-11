@@ -608,11 +608,10 @@ export class PianoPracticeApp {
   private setupBPMControls(): void {
     const bpmSlider = document.getElementById('bpmSlider') as HTMLInputElement;
     const bpmDisplay = document.getElementById('bpmDisplay');
-    const bpmValue = document.getElementById('bpmValue');
     const bpmUp = document.getElementById('bpmUp');
     const bpmDown = document.getElementById('bpmDown');
 
-    if (bpmSlider && bpmDisplay && bpmValue) {
+    if (bpmSlider && bpmDisplay) {
       // スライダーの変更イベント
       bpmSlider.addEventListener('input', (event) => {
         const newBPM = parseInt((event.target as HTMLInputElement).value);
@@ -642,6 +641,7 @@ export class PianoPracticeApp {
 
       // 初期表示を更新
       this.updateBPMDisplay(this.currentBPM);
+      bpmSlider.value = this.currentBPM.toString();
     }
   }
 
