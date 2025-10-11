@@ -71,7 +71,7 @@ export class PianoPracticeApp {
       this.loadInitialContent();
 
       this.isInitialized = true;
-      console.log('Piano Practice App ready');
+
 
     } catch (error) {
       console.error('Failed to initialize app:', error);
@@ -125,14 +125,10 @@ export class PianoPracticeApp {
 
 
   private setupEventListeners(): void {
-    console.log('=== SETTING UP EVENT LISTENERS ===');
-
     // MIDI接続ボタン
     const connectMidiBtn = document.getElementById('connectMidiBtn');
     if (connectMidiBtn) {
-      console.log('MIDI connect button found, adding APP event listener');
       connectMidiBtn.addEventListener('click', () => {
-        console.log('=== APP MIDI CONNECT BUTTON CLICKED ===');
         this.handleMidiConnect();
       });
     } else {
@@ -170,43 +166,43 @@ export class PianoPracticeApp {
     // ループ練習コントロール
     this.setupLoopControls();
 
-    console.log('Event listeners setup completed');
+
   }
 
   private loadInitialContent(): void {
     // TODO: ContentManagerの実装後に初期コンテンツを読み込み
-    console.log('Initial content will be loaded here');
+
   }
 
   private async handleMidiConnect(): Promise<void> {
-    console.log('=== APP MIDI CONNECT HANDLER CALLED ===');
+
 
     if (!this.midiManager) {
-      console.error('=== MIDI MANAGER NOT INITIALIZED ===');
+      console.error('MIDI Manager not initialized');
       alert('MIDI Manager が初期化されていません');
       return;
     }
 
-    console.log('=== MIDI MANAGER EXISTS, PROCEEDING ===');
+
 
     try {
-      console.log('Attempting MIDI connection...');
+
 
       const success = await this.midiManager.requestAccess();
 
       if (success) {
         const devices = this.midiManager.getAvailableDevices();
-        console.log(`Found ${devices.length} MIDI input devices`);
+
 
         if (devices.length > 0) {
           // Transport との同期を開始
           await this.midiManager.syncWithTransport();
-          
+
           // オーディオコンテキストを開始
           await this.audioFeedbackManager.startAudioContext();
-          
+
           this.updateMidiStatus(true);
-          console.log('MIDI connection successful');
+
         } else {
           this.showError('MIDI入力デバイスが見つかりません。電子ピアノが接続されているか確認してください。');
           this.updateMidiStatus(false);
@@ -224,7 +220,7 @@ export class PianoPracticeApp {
 
   private async handleStart(): Promise<void> {
     if (!this.isInitialized) return;
-    console.log('Starting countdown...');
+
 
     // オーディオコンテキストを開始（ユーザージェスチャー）
     await this.audioFeedbackManager.startAudioContext();
@@ -262,11 +258,11 @@ export class PianoPracticeApp {
       if (expectedCount !== countdownValue && expectedCount >= 0) {
         countdownValue = expectedCount;
         this.currentGameState.countdownValue = countdownValue;
-        
+
         // メトロノーム音を再生
         this.audioFeedbackManager.playCountdownBeep(countdownValue);
-        
-        console.log(`Countdown: ${countdownValue || 'START!'}`);
+
+
       }
 
       // カウントダウン完了
@@ -283,7 +279,7 @@ export class PianoPracticeApp {
    * 実際のゲームを開始（カウントダウン完了後）
    */
   private startActualGame(): void {
-    console.log('Starting actual game...');
+
 
     // 音楽的時間管理を開始
     this.musicalTimeManager.start();
@@ -312,13 +308,13 @@ export class PianoPracticeApp {
 
     if (this.currentGameState.phase === GamePhase.PLAYING) {
       // 一時停止
-      console.log('Pausing practice session...');
+
       this.musicalTimeManager.pause();
       this.currentGameState.phase = GamePhase.PAUSED;
       this.currentGameState.isPlaying = false;
     } else if (this.currentGameState.phase === GamePhase.PAUSED) {
       // 再開
-      console.log('Resuming practice session...');
+
       this.musicalTimeManager.resume();
       this.currentGameState.phase = GamePhase.PLAYING;
       this.currentGameState.isPlaying = true;
@@ -329,7 +325,7 @@ export class PianoPracticeApp {
 
   private handleStop(): void {
     if (!this.isInitialized) return;
-    console.log('Stopping practice session...');
+
 
     // カウントダウンタイマーをクリア
     if (this.countdownTimer) {
@@ -369,7 +365,7 @@ export class PianoPracticeApp {
 
   private handleResize(): void {
     // UIRendererは自動的にリサイズを処理するため、特別な処理は不要
-    console.log('Window resized - UIRenderer will handle canvas resize automatically');
+
   }
 
   private updateMidiStatus(connected: boolean): void {
@@ -411,21 +407,21 @@ export class PianoPracticeApp {
           stopBtn.disabled = true;
           pauseBtn.textContent = '一時停止';
           break;
-          
+
         case GamePhase.COUNTDOWN:
           startBtn.disabled = true;
           pauseBtn.disabled = true; // カウントダウン中は一時停止不可
           stopBtn.disabled = false;
           pauseBtn.textContent = '一時停止';
           break;
-          
+
         case GamePhase.PLAYING:
           startBtn.disabled = true;
           pauseBtn.disabled = false;
           stopBtn.disabled = false;
           pauseBtn.textContent = '一時停止';
           break;
-          
+
         case GamePhase.PAUSED:
           startBtn.disabled = true;
           pauseBtn.disabled = false;
@@ -437,7 +433,7 @@ export class PianoPracticeApp {
   }
 
   private handleNoteOn(note: number, velocity: number, toneTime: number): void {
-    console.log(`Note ON received: ${note} (${this.midiManager.convertNoteToNoteName(note)}), velocity: ${velocity}`);
+
 
     // 鍵盤のハイライトを開始
     this.uiRenderer.setKeyPressed(note, true);
@@ -451,9 +447,9 @@ export class PianoPracticeApp {
       if (evaluation.isHit) {
         // 正解時：押したノートの音程を短く再生
         this.audioFeedbackManager.playNoteSound(note, 0.2);
-        console.log(`✅ Hit! Note ${note}`);
+
       } else {
-        console.log(`❌ Miss: Note ${note} (no matching target)`);
+
       }
 
       // スコア表示を更新
@@ -466,7 +462,7 @@ export class PianoPracticeApp {
   }
 
   private handleNoteOff(note: number, toneTime: number): void {
-    console.log(`Note OFF received: ${note} (${this.midiManager.convertNoteToNoteName(note)})`);
+
 
     // 鍵盤のハイライトを終了
     this.uiRenderer.setKeyPressed(note, false);
@@ -483,13 +479,13 @@ export class PianoPracticeApp {
       if (this.currentGameState.phase === GamePhase.PLAYING && this.musicalTimeManager.isStarted()) {
         // 音楽的時間管理から現在時刻を取得
         this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
-        
+
         // ScoreEvaluatorでアクティブノートを更新
         this.scoreEvaluator.updateActiveNotes(this.currentGameState.currentTime, this.currentNotes);
-        
+
         // 演奏ガイドを更新
         this.updatePlayingGuide();
-        
+
         // 楽譜終了とループ処理をチェック
         this.checkForLoopRestart();
       }
@@ -502,7 +498,7 @@ export class PianoPracticeApp {
     };
 
     requestAnimationFrame(render);
-    console.log('Render loop started');
+
   }
 
   /**
@@ -517,7 +513,7 @@ export class PianoPracticeApp {
   }
 
   private handleKeyboardInput(event: KeyboardEvent): void {
-    console.log(`Key pressed: ${event.key}`);
+
 
     // キーボードをピアノの鍵盤として使用（フォールバック機能）
     const keyToNote: { [key: string]: number } = {
@@ -538,7 +534,7 @@ export class PianoPracticeApp {
 
     const note = keyToNote[event.key.toLowerCase()];
     if (note !== undefined && !event.repeat) {
-      console.log(`=== KEYBOARD NOTE: ${event.key} -> Note ${note} ===`);
+
       this.handleNoteOn(note, 100, 0); // velocity 100, toneTime 0 for keyboard input
 
       // キーボード入力の場合は短時間後にNote Offを送信
@@ -583,8 +579,7 @@ export class PianoPracticeApp {
     // 音楽的ノートを時間ベースに変換してUIRenderer用に設定
     this.updateCurrentNotes();
 
-    console.log('Musical notes loaded:', this.musicalNotes.length);
-    console.log('Current BPM:', this.currentBPM);
+
   }
 
   /**
@@ -592,7 +587,7 @@ export class PianoPracticeApp {
    */
   private updateCurrentNotes(): void {
     const timeBasedNotes = this.beatTimeConverter.convertNotes(this.musicalNotes);
-    console.log("aaaaaa")
+
 
     // 相対時間として設定（ゲーム開始時刻は加算しない）
     this.currentNotes = timeBasedNotes.map(note => ({
@@ -600,16 +595,7 @@ export class PianoPracticeApp {
       startTime: note.startTime // そのまま相対時間として使用
     }));
 
-    console.log(`[PianoPracticeApp] Updated notes:`, {
-      musicalNotesCount: this.musicalNotes.length,
-      timeBasedNotesCount: this.currentNotes.length,
-      firstNoteStartTime: this.currentNotes[0]?.startTime,
-      sampleNotes: this.currentNotes.slice(0, 3).map(n => ({
-        pitch: n.pitch,
-        startTime: n.startTime,
-        duration: n.duration
-      }))
-    });
+
   }
 
   private showError(message: string): void {
@@ -692,10 +678,10 @@ export class PianoPracticeApp {
     }
 
     this.currentBPM = newBPM;
-    
+
     // 音楽的時間管理でBPMを変更（音楽的位置を保持）
     this.musicalTimeManager.setBPM(newBPM);
-    
+
     // BeatTimeConverterも更新
     this.beatTimeConverter.setBPM(newBPM);
 
@@ -707,7 +693,7 @@ export class PianoPracticeApp {
       this.updateCurrentNotes();
     }
 
-    console.log(`BPM changed to: ${newBPM} (musical position preserved)`);
+
   }
 
   /**
@@ -724,11 +710,11 @@ export class PianoPracticeApp {
     if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
       return 0;
     }
-    
+
     // 最後のノートの終了時刻を楽曲の長さとする
     const lastNote = this.currentNotes[this.currentNotes.length - 1];
     if (!lastNote) return 0;
-    
+
     const totalDuration = lastNote.startTime + lastNote.duration;
     return this.musicalTimeManager.getProgress(totalDuration);
   }
@@ -740,14 +726,14 @@ export class PianoPracticeApp {
     if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
       return;
     }
-    
+
     const lastNote = this.currentNotes[this.currentNotes.length - 1];
     if (!lastNote) return;
-    
+
     const totalDuration = lastNote.startTime + lastNote.duration;
     this.musicalTimeManager.setProgress(progress, totalDuration);
-    
-    console.log(`Seeked to ${(progress * 100).toFixed(1)}%`);
+
+
   }
 
   /**
@@ -755,7 +741,7 @@ export class PianoPracticeApp {
    */
   public seekToMusicalPosition(beats: number): void {
     this.musicalTimeManager.seekToMusicalPosition(beats);
-    console.log(`Seeked to beat ${beats.toFixed(2)}`);
+
   }
 
   // 既に再生したノートを追跡
@@ -796,7 +782,7 @@ export class PianoPracticeApp {
 
     this.currentNotes.forEach(note => {
       const noteId = `${note.pitch}-${note.startTime}`;
-      
+
       // 既に再生済みのノートはスキップ
       if (this.playedNotes.has(noteId)) {
         return;
@@ -804,11 +790,11 @@ export class PianoPracticeApp {
 
       // ノートの開始タイミングに到達したか確認
       if (Math.abs(currentTime - note.startTime) <= tolerance && currentTime >= note.startTime) {
-        console.log(`Auto-playing scheduled note: ${note.pitch} at time ${currentTime}`);
-        
+
+
         // ノートを再生
         this.audioFeedbackManager.playNoteSound(note.pitch, note.duration / 1000); // msを秒に変換
-        
+
         // 再生済みとしてマーク
         this.playedNotes.add(noteId);
       }
@@ -843,13 +829,13 @@ export class PianoPracticeApp {
       muteBtn.addEventListener('click', async () => {
         // オーディオコンテキストを開始（初回クリック時）
         await this.audioFeedbackManager.startAudioContext();
-        
+
         const isMuted = this.toggleAudioMute();
         this.updateMuteButton(isMuted);
-        
+
         // テスト音を再生（ミュート解除時）
         if (!isMuted) {
-          console.log('Playing test sound...');
+
           this.audioFeedbackManager.playNoteSound(60, 0.3); // C4
         }
       });
@@ -915,17 +901,17 @@ export class PianoPracticeApp {
     if (this.currentNotes.length === 0) return;
 
     const currentTime = this.currentGameState.currentTime;
-    
+
     // 最後のノートの終了時刻を取得
     const lastNote = this.currentNotes[this.currentNotes.length - 1];
     if (!lastNote) return;
-    
+
     const songEndTime = lastNote.startTime + lastNote.duration;
-    
+
     // 楽譜が終了したかチェック（1秒のマージン）
     if (currentTime >= songEndTime + 1000) {
-      console.log('Song completed, checking for loop restart...');
-      
+
+
       if (this.isLoopEnabled) {
         this.handleLoopRestart();
       } else {
@@ -940,20 +926,20 @@ export class PianoPracticeApp {
   private handleLoopRestart(): void {
     // 現在のループの統計を記録
     this.recordLoopStats();
-    
+
     this.loopCount++;
-    console.log(`Starting loop ${this.loopCount}/${this.maxLoops === 0 ? '∞' : this.maxLoops}`);
-    
+
+
     // ループ状態表示を更新
     this.updateLoopStatus();
-    
+
     // 最大ループ回数に達した場合は終了
     if (this.maxLoops > 0 && this.loopCount >= this.maxLoops) {
-      console.log('Maximum loops reached, ending practice session');
+
       this.handleSongComplete();
       return;
     }
-    
+
     // ループ再開
     this.restartSong();
   }
@@ -962,14 +948,14 @@ export class PianoPracticeApp {
    * 楽曲完了処理
    */
   private handleSongComplete(): void {
-    console.log('Practice session completed');
-    
+
+
     // 最終統計を記録
     this.recordLoopStats();
-    
+
     // 統計情報を表示
     this.showLoopStatistics();
-    
+
     // ゲームを停止
     this.handleStop();
   }
@@ -981,17 +967,17 @@ export class PianoPracticeApp {
     // 音楽的時間管理をリセット
     this.musicalTimeManager.stop();
     this.musicalTimeManager.start();
-    
+
     // ゲーム状態をリセット（スコアは保持）
     this.currentGameState.currentTime = 0;
-    
+
     // 再生済みノートをクリア
     this.playedNotes.clear();
-    
+
     // 演奏ガイドをクリア
     this.uiRenderer.clearTargetKeys();
-    
-    console.log('Song restarted for loop practice');
+
+
   }
 
   /**
@@ -1010,33 +996,29 @@ export class PianoPracticeApp {
    */
   private showLoopStatistics(): void {
     if (this.loopStats.length === 0) return;
-    
+
     const totalScore = this.loopStats.reduce((sum, stat) => sum + stat.score, 0);
     const averageScore = Math.round(totalScore / this.loopStats.length);
-    
+
     const totalAccuracy = this.loopStats.reduce((sum, stat) => sum + stat.accuracy, 0);
     const averageAccuracy = (totalAccuracy / this.loopStats.length * 100).toFixed(1);
-    
-    console.log('=== Loop Practice Statistics ===');
-    console.log(`Loops completed: ${this.loopStats.length}`);
-    console.log(`Average score: ${averageScore}`);
-    console.log(`Average accuracy: ${averageAccuracy}%`);
-    
+
+
+
     // 改善度を計算（最初と最後の比較）
     if (this.loopStats.length > 1) {
       const firstLoop = this.loopStats[0];
       const lastLoop = this.loopStats[this.loopStats.length - 1];
-      
+
       if (firstLoop && lastLoop) {
         const scoreImprovement = lastLoop.score - firstLoop.score;
         const accuracyImprovement = ((lastLoop.accuracy - firstLoop.accuracy) * 100).toFixed(1);
         const accuracyImprovementNum = parseFloat(accuracyImprovement);
-        
-        console.log(`Score improvement: ${scoreImprovement > 0 ? '+' : ''}${scoreImprovement}`);
-        console.log(`Accuracy improvement: ${accuracyImprovementNum > 0 ? '+' : ''}${accuracyImprovement}%`);
+
+
       }
     }
-    
+
     // UIに統計情報を表示（簡易版）
     this.showStatsInUI(averageScore, parseFloat(averageAccuracy));
   }
@@ -1047,10 +1029,10 @@ export class PianoPracticeApp {
   private showStatsInUI(averageScore: number, averageAccuracy: number): void {
     // 簡易的にアラートで表示（後でより良いUIに変更可能）
     const message = `ループ練習完了！\n` +
-                   `完了回数: ${this.loopStats.length}\n` +
-                   `平均スコア: ${averageScore}\n` +
-                   `平均正解率: ${averageAccuracy}%`;
-    
+      `完了回数: ${this.loopStats.length}\n` +
+      `平均スコア: ${averageScore}\n` +
+      `平均正解率: ${averageAccuracy}%`;
+
     setTimeout(() => {
       alert(message);
     }, 500);
@@ -1061,7 +1043,7 @@ export class PianoPracticeApp {
    */
   public setLoopEnabled(enabled: boolean): void {
     this.isLoopEnabled = enabled;
-    console.log(`Loop practice ${enabled ? 'enabled' : 'disabled'}`);
+
   }
 
   /**
@@ -1069,7 +1051,7 @@ export class PianoPracticeApp {
    */
   public setMaxLoops(maxLoops: number): void {
     this.maxLoops = maxLoops;
-    console.log(`Max loops set to: ${maxLoops === 0 ? 'infinite' : maxLoops}`);
+
   }
 
   /**
@@ -1144,6 +1126,6 @@ export class PianoPracticeApp {
       this.audioFeedbackManager.destroy();
     }
 
-    console.log('PianoPracticeApp destroyed');
+
   }
 }

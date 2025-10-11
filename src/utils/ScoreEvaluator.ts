@@ -35,13 +35,13 @@ export class ScoreEvaluator {
       .sort((a, b) => a.index - b.index); // indexの小さい順
 
     if (candidates.length > 0) {
-      const hitIndex = candidates[0].index;
+      const hitIndex = candidates[0]!.index;
       this.hitNoteIndices.add(hitIndex);
-      console.log(`🎯 Hit! Note ${inputNote} at index ${hitIndex}, timing diff: ${Math.abs(notes[hitIndex].startTime - currentTime)}ms`);
+
       return { isHit: true, hitNoteIndex: hitIndex };
     }
 
-    console.log(`❌ Miss: Note ${inputNote} at time ${currentTime}, no matching candidates`);
+
     return { isHit: false };
   }
 
@@ -56,7 +56,7 @@ export class ScoreEvaluator {
       // ノートの開始タイミングに到達したらアクティブに追加
       if (currentTime >= note.startTime && !this.activeNoteIndices.has(index)) {
         this.activeNoteIndices.add(index);
-        console.log(`📝 Note ${note.pitch} (index ${index}) became active at time ${currentTime}`);
+
       }
     });
   }
@@ -134,7 +134,7 @@ export class ScoreEvaluator {
   public reset(): void {
     this.hitNoteIndices.clear();
     this.activeNoteIndices.clear();
-    console.log('🔄 ScoreEvaluator reset');
+
   }
 
   /**

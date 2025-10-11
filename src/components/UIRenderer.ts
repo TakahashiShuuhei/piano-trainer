@@ -86,7 +86,7 @@ export class UIRenderer {
     // リサイズイベントリスナーを追加
     window.addEventListener('resize', () => this.resizeCanvas());
 
-    console.log('UIRenderer: Canvas initialized');
+
   }
 
   /**
@@ -780,7 +780,7 @@ export class UIRenderer {
    */
   updateScore(score: number, accuracy: number): void {
     // render メソッドで描画されるため、ここでは特別な処理は不要
-    console.log(`UIRenderer: Score updated - ${score}, Accuracy: ${(accuracy * 100).toFixed(1)}%`);
+
   }
 
   /**
@@ -812,7 +812,7 @@ export class UIRenderer {
    */
   setTheme(theme: 'light' | 'dark'): void {
     this.theme = theme;
-    console.log(`UIRenderer: Theme set to ${theme}`);
+
   }
 
   /**
@@ -830,7 +830,7 @@ export class UIRenderer {
     };
 
     this.animationId = requestAnimationFrame(animate);
-    console.log('UIRenderer: Animation loop started');
+
   }
 
   /**
@@ -840,7 +840,7 @@ export class UIRenderer {
     if (this.animationId !== null) {
       cancelAnimationFrame(this.animationId);
       this.animationId = null;
-      console.log('UIRenderer: Animation loop stopped');
+
     }
   }
 
@@ -1049,6 +1049,6 @@ export class UIRenderer {
 
     this.canvas = null;
     this.ctx = null;
-    console.log('UIRenderer: Destroyed');
+
   }
 }

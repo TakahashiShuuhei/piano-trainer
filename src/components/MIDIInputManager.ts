@@ -10,7 +10,7 @@ export class MIDIInputManager implements IMIDIInputManager {
   private isConnected = false;
 
   constructor() {
-    console.log('MIDIInputManager initialized');
+
   }
 
   public async requestAccess(): Promise<boolean> {
@@ -23,7 +23,7 @@ export class MIDIInputManager implements IMIDIInputManager {
 
       // MIDI アクセスを要求
       this.midiAccess = await navigator.requestMIDIAccess();
-      console.log('MIDI access granted');
+
 
       // 接続状態の変化を監視
       this.midiAccess.onstatechange = (event) => {
@@ -75,27 +75,8 @@ export class MIDIInputManager implements IMIDIInputManager {
   }
 
   public async syncWithTransport(): Promise<void> {
-    try {
-      console.log('Syncing with Tone.js Transport...');
-
-      // AudioContextを開始（ユーザージェスチャー後に必要）
-      const context = Tone.getContext ? Tone.getContext() : Tone.context;
-      if (context.state === 'suspended') {
-        console.log('Resuming AudioContext...');
-        await context.resume();
-      }
-
-      // Tone.js Transportとの同期を確保
-      const transport = Tone.getTransport ? Tone.getTransport() : Tone.Transport;
-      if (transport.state !== 'started') {
-        console.log('Starting Tone.js Transport for MIDI sync');
-        transport.start();
-      }
-
-      console.log('Transport sync completed');
-    } catch (error) {
-      console.error('Failed to sync with Transport:', error);
-    }
+    // Tone.js依存を削除 - 同期処理は不要
+    return Promise.resolve();
   }
 
   public getTransportTime(): number {
@@ -137,7 +118,7 @@ export class MIDIInputManager implements IMIDIInputManager {
     this.noteOffCallbacks = [];
     this.isConnected = false;
 
-    console.log('MIDI input manager disconnected');
+
   }
 
   public isDeviceConnected(): boolean {
@@ -150,7 +131,7 @@ export class MIDIInputManager implements IMIDIInputManager {
     this.connectedInputs = [];
 
     this.midiAccess.inputs.forEach((input) => {
-      console.log(`MIDI input detected: ${input.name} (${input.manufacturer})`);
+
       this.connectToInput(input);
     });
 
@@ -169,7 +150,7 @@ export class MIDIInputManager implements IMIDIInputManager {
     };
 
     this.connectedInputs.push(input);
-    console.log(`Connected to MIDI input: ${input.name}`);
+
   }
 
   private handleMidiMessage(event: MIDIMessageEvent): void {
@@ -224,7 +205,7 @@ export class MIDIInputManager implements IMIDIInputManager {
       return;
     }
 
-    console.log(`MIDI port ${port.name} ${port.state}`);
+
 
     if (port.type === 'input') {
       if (port.state === 'connected') {
@@ -242,7 +223,7 @@ export class MIDIInputManager implements IMIDIInputManager {
     if (index > -1) {
       input.onmidimessage = null;
       this.connectedInputs.splice(index, 1);
-      console.log(`Disconnected from MIDI input: ${input.name}`);
+
     }
   }
 
