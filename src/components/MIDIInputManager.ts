@@ -75,20 +75,23 @@ export class MIDIInputManager implements IMIDIInputManager {
 
   public async syncWithTransport(): Promise<void> {
     try {
-      console.log('Sync with Transport - skipping for now due to Tone.js import issues');
-      // TODO: Fix Tone.js import issues later
+      console.log('Syncing with Tone.js Transport...');
+
       // AudioContextを開始（ユーザージェスチャー後に必要）
-      // if (Tone.context && Tone.context.state === 'suspended') {
-      //   console.log('Resuming AudioContext...');
-      //   await Tone.context.resume();
-      // }
-      
+      const context = Tone.getContext();
+      if (context.state === 'suspended') {
+        console.log('Resuming AudioContext...');
+        await context.resume();
+      }
+
       // Tone.js Transportとの同期を確保
-      // Transport が開始されていない場合は開始
-      // if (Tone.Transport && Tone.Transport.state !== 'started') {
-      //   console.log('Starting Tone.js Transport for MIDI sync');
-      //   Tone.Transport.start();
-      // }
+      const transport = Tone.getTransport();
+      if (transport.state !== 'started') {
+        console.log('Starting Tone.js Transport for MIDI sync');
+        transport.start();
+      }
+
+      console.log('Transport sync completed');
     } catch (error) {
       console.error('Failed to sync with Transport:', error);
     }
@@ -96,18 +99,28 @@ export class MIDIInputManager implements IMIDIInputManager {
 
   public getTransportTime(): number {
     // Tone.js Transport の現在時刻を取得
-    return Tone.Transport.seconds;
+    try {
+      return Tone.getTransport().seconds;
+    } catch (error) {
+      console.warn('Failed to get Transport time, using fallback:', error);
+      return performance.now() / 1000;
+    }
   }
 
   public convertMidiTimeToTransportTime(midiTimestamp: number): number {
     // MIDIタイムスタンプをTone.js Transport時間に変換
     // Web MIDI APIのタイムスタンプは performance.now() ベース
     // Tone.js は AudioContext.currentTime ベース
-    const performanceNow = performance.now();
-    const audioContextTime = Tone.context.currentTime;
-    const timeDiff = (midiTimestamp - performanceNow) / 1000; // ミリ秒を秒に変換
-    
-    return audioContextTime + timeDiff;
+    try {
+      const performanceNow = performance.now();
+      const audioContextTime = Tone.getContext().currentTime;
+      const timeDiff = (midiTimestamp - performanceNow) / 1000; // ミリ秒を秒に変換
+
+      return audioContextTime + timeDiff;
+    } catch (error) {
+      console.warn('Failed to convert MIDI time, using fallback:', error);
+      return midiTimestamp / 1000;
+    }
   }
 
   public disconnect(): void {
@@ -132,7 +145,7 @@ export class MIDIInputManager implements IMIDIInputManager {
     if (!this.midiAccess) return;
 
     this.connectedInputs = [];
-    
+
     this.midiAccess.inputs.forEach((input) => {
       console.log(`MIDI input detected: ${input.name} (${input.manufacturer})`);
       this.connectToInput(input);
@@ -162,7 +175,7 @@ export class MIDIInputManager implements IMIDIInputManager {
       if (!data || data.length < 3) {
         return;
       }
-      
+
       const command = data[0]! >> 4;
       const channel = data[0]! & 0xf;
       const note = data[1]!;
@@ -207,7 +220,7 @@ export class MIDIInputManager implements IMIDIInputManager {
     if (!port) {
       return;
     }
-    
+
     console.log(`MIDI port ${port.name} ${port.state}`);
 
     if (port.type === 'input') {
