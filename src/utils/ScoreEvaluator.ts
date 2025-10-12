@@ -9,9 +9,13 @@ import { Note } from '../types/index.js';
  * - 連打も無視
  */
 export class ScoreEvaluator {
-  private hitNoteIndices = new Set<number>();      // 正解したノートのindex
-  private activeNoteIndices = new Set<number>();   // 現在アクティブ（演奏対象）なノートのindex
+  private hitNoteIndices = new Set<number>();      // 正解したノートのindex（現在のループ）
+  private activeNoteIndices = new Set<number>();   // 現在アクティブ（演奏対象）なノートのindex（現在のループ）
   private readonly hitWindow = 100; // ±100msec
+
+  // ループ対応：累積スコア管理
+  private totalCorrectCount = 0;  // 全ループ通しての正解数
+  private totalNoteCount = 0;     // 全ループ通しての総ノート数
 
   /**
    * キーボード入力時の評価
@@ -27,7 +31,7 @@ export class ScoreEvaluator {
     // 候補ノートを探す（未ヒット + 音程一致 + タイミング範囲内）
     const candidates = notes
       .map((note, index) => ({ note, index }))
-      .filter(({ note, index }) => 
+      .filter(({ note, index }) =>
         !this.hitNoteIndices.has(index) &&
         note.pitch === inputNote &&
         Math.abs(note.startTime - currentTime) <= this.hitWindow
@@ -56,29 +60,32 @@ export class ScoreEvaluator {
       // ノートの開始タイミングに到達したらアクティブに追加
       if (currentTime >= note.startTime && !this.activeNoteIndices.has(index)) {
         this.activeNoteIndices.add(index);
-
       }
     });
   }
 
   /**
-   * 現在のスコアを取得
+   * 現在のスコアを取得（累積スコア + 現在のループ）
    * @returns スコア情報
    */
-  public getScore(): { 
-    correct: number; 
-    total: number; 
+  public getScore(): {
+    correct: number;
+    total: number;
     accuracy: number;
     hitIndices: number[];
     activeIndices: number[];
   } {
-    const correct = this.hitNoteIndices.size;
-    const total = this.activeNoteIndices.size;
-    
+    // 累積スコア + 現在のループのスコア
+    const currentCorrect = this.hitNoteIndices.size;
+    const currentTotal = this.activeNoteIndices.size;
+
+    const totalCorrect = this.totalCorrectCount + currentCorrect;
+    const totalNotes = this.totalNoteCount + currentTotal;
+
     return {
-      correct,
-      total,
-      accuracy: total > 0 ? correct / total : 1.0,
+      correct: totalCorrect,
+      total: totalNotes,
+      accuracy: totalNotes > 0 ? totalCorrect / totalNotes : 1.0,
       hitIndices: Array.from(this.hitNoteIndices).sort((a, b) => a - b),
       activeIndices: Array.from(this.activeNoteIndices).sort((a, b) => a - b)
     };
@@ -90,7 +97,7 @@ export class ScoreEvaluator {
    */
   public getMissedNotes(currentTime: number, notes: Note[]): number[] {
     const missedIndices: number[] = [];
-    
+
     this.activeNoteIndices.forEach(index => {
       const note = notes[index];
       if (note && !this.hitNoteIndices.has(index)) {
@@ -115,7 +122,7 @@ export class ScoreEvaluator {
   }> {
     return notes
       .map((note, index) => ({ note, index }))
-      .filter(({ note, index }) => 
+      .filter(({ note, index }) =>
         !this.hitNoteIndices.has(index) &&
         note.pitch === inputNote &&
         Math.abs(note.startTime - currentTime) <= this.hitWindow
@@ -129,12 +136,27 @@ export class ScoreEvaluator {
   }
 
   /**
+   * 現在のループのスコアを累積に追加（ループ終了時に呼び出し）
+   */
+  public finalizeCurrentLoop(): void {
+    this.totalCorrectCount += this.hitNoteIndices.size;
+    this.totalNoteCount += this.activeNoteIndices.size;
+
+    // 現在のループの状態をクリア
+    this.hitNoteIndices.clear();
+    this.activeNoteIndices.clear();
+  }
+
+  /**
    * スコア評価をリセット（新しいセッション開始時）
    */
   public reset(): void {
     this.hitNoteIndices.clear();
     this.activeNoteIndices.clear();
 
+    // 累積スコアもリセット
+    this.totalCorrectCount = 0;
+    this.totalNoteCount = 0;
   }
 
   /**
@@ -143,8 +165,10 @@ export class ScoreEvaluator {
   public debugInfo(): void {
     const score = this.getScore();
     console.log('=== ScoreEvaluator Debug Info ===');
-    console.log(`Hit notes: [${score.hitIndices.join(', ')}]`);
-    console.log(`Active notes: [${score.activeIndices.join(', ')}]`);
-    console.log(`Score: ${score.correct}/${score.total} (${(score.accuracy * 100).toFixed(1)}%)`);
+    console.log(`Current loop - Hit notes: [${score.hitIndices.join(', ')}]`);
+    console.log(`Current loop - Active notes: [${score.activeIndices.join(', ')}]`);
+    console.log(`Total accumulated score: ${score.correct}/${score.total} (${(score.accuracy * 100).toFixed(1)}%)`);
+    console.log(`Accumulated from previous loops: ${this.totalCorrectCount}/${this.totalNoteCount}`);
+    console.log(`Current loop: ${this.hitNoteIndices.size}/${this.activeNoteIndices.size}`);
   }
 }

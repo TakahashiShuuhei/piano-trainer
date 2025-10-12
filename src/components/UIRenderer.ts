@@ -152,12 +152,12 @@ export class UIRenderer {
     // ゲーム情報を描画
     this.drawGameInfo(gameState);
 
-    // カウントダウン表示
+    // ノートを描画（常に表示）
+    this.drawNotes(notes, gameState.currentTime);
+
+    // カウントダウン表示（ノートの上に重ねて表示）
     if (gameState.phase === GamePhase.COUNTDOWN && gameState.countdownValue !== undefined) {
       this.drawCountdown(gameState.countdownValue);
-    } else {
-      // ノートを描画（カウントダウン中以外）
-      this.drawNotes(notes, gameState.currentTime);
     }
 
     // 鍵盤エリアを描画

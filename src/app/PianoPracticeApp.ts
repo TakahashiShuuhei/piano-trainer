@@ -114,8 +114,6 @@ export class PianoPracticeApp {
 
       // 描画ループを開始
       this.startRenderLoop();
-
-
     } catch (error) {
       console.error('Component initialization failed:', error);
       throw error;
@@ -165,8 +163,6 @@ export class PianoPracticeApp {
 
     // ループ練習コントロール
     this.setupLoopControls();
-
-
   }
 
   private loadInitialContent(): void {
@@ -244,6 +240,11 @@ export class PianoPracticeApp {
     // サンプルノートを追加（カウントダウン中に準備）
     this.loadSampleNotes();
 
+    // カウントダウン中の時間を設定（最初のノートがカウントダウン終了時にタイミングラインに到達するように）
+    const beatDuration = 60000 / this.currentBPM; // 1拍の長さ（ミリ秒）
+    const countdownDuration = beatDuration * 4; // 4拍分のカウントダウン
+    this.currentGameState.currentTime = -countdownDuration; // 負の時間から開始
+
     this.updateGameStateDisplay();
 
     // カウントダウンタイマーを開始
@@ -261,8 +262,6 @@ export class PianoPracticeApp {
 
         // メトロノーム音を再生
         this.audioFeedbackManager.playCountdownBeep(countdownValue);
-
-
       }
 
       // カウントダウン完了
@@ -279,8 +278,6 @@ export class PianoPracticeApp {
    * 実際のゲームを開始（カウントダウン完了後）
    */
   private startActualGame(): void {
-
-
     // 音楽的時間管理を開始
     this.musicalTimeManager.start();
 
@@ -295,8 +292,6 @@ export class PianoPracticeApp {
 
     this.updateGameStateDisplay();
   }
-
-
 
   private handlePause(): void {
     if (!this.isInitialized) return;
@@ -354,13 +349,7 @@ export class PianoPracticeApp {
     // 再生済みノートをクリア
     this.playedNotes.clear();
 
-    // ループ統計をクリア
-    this.loopCount = 0;
-    this.loopStats = [];
-
     this.updateGameStateDisplay();
-
-
   }
 
   private handleResize(): void {
@@ -425,8 +414,6 @@ export class PianoPracticeApp {
   }
 
   private handleNoteOn(note: number, velocity: number, toneTime: number): void {
-
-
     // 鍵盤のハイライトを開始
     this.uiRenderer.setKeyPressed(note, true);
 
@@ -451,16 +438,11 @@ export class PianoPracticeApp {
       this.currentGameState.totalNotes = scoreInfo.total;
       this.updateGameStateDisplay();
     }
-
   }
 
   private handleNoteOff(note: number, toneTime: number): void {
-
-
     // 鍵盤のハイライトを終了
     this.uiRenderer.setKeyPressed(note, false);
-
-
   }
 
   /**
@@ -468,6 +450,14 @@ export class PianoPracticeApp {
    */
   private startRenderLoop(): void {
     const render = () => {
+      // カウントダウン中も時間を進める
+      if (this.currentGameState.phase === GamePhase.COUNTDOWN) {
+        const elapsed = Date.now() - this.countdownStartTime;
+        const beatDuration = 60000 / this.currentBPM;
+        const countdownDuration = beatDuration * 4;
+        this.currentGameState.currentTime = elapsed - countdownDuration; // 負の時間から0に向かって進む
+      }
+
       // ゲームが再生中の場合、時間を進める
       if (this.currentGameState.phase === GamePhase.PLAYING && this.musicalTimeManager.isStarted()) {
         // 音楽的時間管理から現在時刻を取得
@@ -479,8 +469,8 @@ export class PianoPracticeApp {
         // 演奏ガイドを更新
         this.updatePlayingGuide();
 
-        // 楽譜終了とループ処理をチェック
-        this.checkForLoopRestart();
+        // 楽曲終了チェック（ループ対応）
+        this.checkSongEnd();
       }
 
       // UIRendererで画面を描画
@@ -680,8 +670,6 @@ export class PianoPracticeApp {
     if (this.musicalNotes.length > 0) {
       this.updateCurrentNotes();
     }
-
-
   }
 
   /**
@@ -735,11 +723,8 @@ export class PianoPracticeApp {
   // 既に再生したノートを追跡
   private playedNotes = new Set<string>();
 
-  // ループ練習機能
+  // シンプルなループ機能
   private isLoopEnabled = false;
-  private loopCount = 0; // 現在のループ回数
-  private maxLoops = 3; // 最大ループ回数（0 = 無限）
-  private loopStats: Array<{ score: number; accuracy: number; completedAt: number }> = [];
 
   /**
    * 演奏ガイドを更新
@@ -882,82 +867,36 @@ export class PianoPracticeApp {
     return this.audioFeedbackManager.isMutedState();
   }
 
+
+
   /**
-   * 楽譜終了とループ処理をチェック
+   * 楽曲終了をチェックしてループ処理
    */
-  private checkForLoopRestart(): void {
+  private checkSongEnd(): void {
     if (this.currentNotes.length === 0) return;
 
     const currentTime = this.currentGameState.currentTime;
-
-    // 最後のノートの終了時刻を取得
     const lastNote = this.currentNotes[this.currentNotes.length - 1];
     if (!lastNote) return;
 
     const songEndTime = lastNote.startTime + lastNote.duration;
 
-    // 楽譜が終了したかチェック（1秒のマージン）
+    // 楽曲が終了したかチェック（1秒のマージン）
     if (currentTime >= songEndTime + 1000) {
-
-
       if (this.isLoopEnabled) {
-        this.handleLoopRestart();
+        this.startLoop();
       } else {
-        this.handleSongComplete();
+        this.handleStop();
       }
     }
   }
 
   /**
-   * ループ再開処理
+   * ループを開始（カウントダウン→演奏の繰り返し）
    */
-  private handleLoopRestart(): void {
-    // 現在のループの統計を記録
-    this.recordLoopStats();
-
-    this.loopCount++;
-
-
-    // ループ状態表示を更新
-    this.updateLoopStatus();
-
-    // 最大ループ回数に達した場合は終了
-    if (this.maxLoops > 0 && this.loopCount >= this.maxLoops) {
-
-      this.handleSongComplete();
-      return;
-    }
-
-    // ループ再開
-    this.restartSong();
-  }
-
-  /**
-   * 楽曲完了処理
-   */
-  private handleSongComplete(): void {
-
-
-    // 最終統計を記録
-    this.recordLoopStats();
-
-    // 統計情報を表示
-    this.showLoopStatistics();
-
-    // ゲームを停止
-    this.handleStop();
-  }
-
-  /**
-   * 楽曲を最初から再開
-   */
-  private restartSong(): void {
-    // 音楽的時間管理をリセット
-    this.musicalTimeManager.stop();
-    this.musicalTimeManager.start();
-
-    // ゲーム状態をリセット（スコアは保持）
-    this.currentGameState.currentTime = 0;
+  private startLoop(): void {
+    // 現在のループのスコアを累積に追加
+    this.scoreEvaluator.finalizeCurrentLoop();
 
     // 再生済みノートをクリア
     this.playedNotes.clear();
@@ -965,88 +904,8 @@ export class PianoPracticeApp {
     // 演奏ガイドをクリア
     this.uiRenderer.clearTargetKeys();
 
-
-  }
-
-  /**
-   * ループ統計を記録
-   */
-  private recordLoopStats(): void {
-    this.loopStats.push({
-      score: this.currentGameState.score,
-      accuracy: this.currentGameState.accuracy,
-      completedAt: Date.now()
-    });
-  }
-
-  /**
-   * ループ統計を表示
-   */
-  private showLoopStatistics(): void {
-    if (this.loopStats.length === 0) return;
-
-    const totalScore = this.loopStats.reduce((sum, stat) => sum + stat.score, 0);
-    const averageScore = Math.round(totalScore / this.loopStats.length);
-
-    const totalAccuracy = this.loopStats.reduce((sum, stat) => sum + stat.accuracy, 0);
-    const averageAccuracy = (totalAccuracy / this.loopStats.length * 100).toFixed(1);
-
-
-
-    // 改善度を計算（最初と最後の比較）
-    if (this.loopStats.length > 1) {
-      const firstLoop = this.loopStats[0];
-      const lastLoop = this.loopStats[this.loopStats.length - 1];
-
-      if (firstLoop && lastLoop) {
-        const scoreImprovement = lastLoop.score - firstLoop.score;
-        const accuracyImprovement = ((lastLoop.accuracy - firstLoop.accuracy) * 100).toFixed(1);
-        const accuracyImprovementNum = parseFloat(accuracyImprovement);
-
-
-      }
-    }
-
-    // UIに統計情報を表示（簡易版）
-    this.showStatsInUI(averageScore, parseFloat(averageAccuracy));
-  }
-
-  /**
-   * UIに統計情報を表示
-   */
-  private showStatsInUI(averageScore: number, averageAccuracy: number): void {
-    const message = `ループ練習完了！\n` +
-      `完了回数: ${this.loopStats.length}\n` +
-      `平均正解数: ${averageScore}\n` +
-      `平均正解率: ${averageAccuracy}%`;
-
-    // 結果表示エリアに表示
-    const resultDisplay = document.getElementById('resultDisplay');
-    const resultText = document.getElementById('resultText');
-    const closeResultBtn = document.getElementById('closeResultBtn');
-
-    if (resultDisplay && resultText) {
-      resultText.textContent = message;
-      resultDisplay.style.display = 'flex';
-
-      // 閉じるボタンのイベントリスナー
-      if (closeResultBtn) {
-        const closeHandler = () => {
-          resultDisplay.style.display = 'none';
-          closeResultBtn.removeEventListener('click', closeHandler);
-        };
-        closeResultBtn.addEventListener('click', closeHandler);
-      }
-
-      // 背景クリックで閉じる
-      const backgroundClickHandler = (event: MouseEvent) => {
-        if (event.target === resultDisplay) {
-          resultDisplay.style.display = 'none';
-          resultDisplay.removeEventListener('click', backgroundClickHandler);
-        }
-      };
-      resultDisplay.addEventListener('click', backgroundClickHandler);
-    }
+    // カウントダウンを開始（既存の処理を再利用）
+    this.startCountdown();
   }
 
   /**
@@ -1054,15 +913,6 @@ export class PianoPracticeApp {
    */
   public setLoopEnabled(enabled: boolean): void {
     this.isLoopEnabled = enabled;
-
-  }
-
-  /**
-   * 最大ループ回数を設定
-   */
-  public setMaxLoops(maxLoops: number): void {
-    this.maxLoops = maxLoops;
-
   }
 
   /**
@@ -1070,47 +920,11 @@ export class PianoPracticeApp {
    */
   private setupLoopControls(): void {
     const loopEnabled = document.getElementById('loopEnabled') as HTMLInputElement;
-    const loopCount = document.getElementById('loopCount') as HTMLSelectElement;
-    const loopStatus = document.getElementById('loopStatus');
 
     if (loopEnabled) {
       loopEnabled.addEventListener('change', () => {
         this.setLoopEnabled(loopEnabled.checked);
-        this.updateLoopStatus();
       });
-    }
-
-    if (loopCount) {
-      loopCount.addEventListener('change', () => {
-        const maxLoops = parseInt(loopCount.value);
-        this.setMaxLoops(maxLoops);
-        this.updateLoopStatus();
-      });
-
-      // 初期値を設定
-      this.setMaxLoops(parseInt(loopCount.value));
-    }
-
-    // 初期状態を更新
-    this.updateLoopStatus();
-  }
-
-  /**
-   * ループ状態表示を更新
-   */
-  private updateLoopStatus(): void {
-    const loopStatus = document.getElementById('loopStatus');
-    if (!loopStatus) return;
-
-    if (this.isLoopEnabled) {
-      const maxText = this.maxLoops === 0 ? '無限' : `${this.maxLoops}回`;
-      if (this.loopCount > 0) {
-        loopStatus.textContent = `${this.loopCount}/${maxText}`;
-      } else {
-        loopStatus.textContent = `設定: ${maxText}`;
-      }
-    } else {
-      loopStatus.textContent = '';
     }
   }
 
