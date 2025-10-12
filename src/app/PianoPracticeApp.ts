@@ -743,6 +743,19 @@ export class PianoPracticeApp {
     const currentTargetKeys = activeNotes.map(note => note.pitch);
     this.uiRenderer.setCurrentTargetKeys(currentTargetKeys);
 
+    // スコア表示を更新（アクティブノートが変わった可能性があるため）
+    const scoreInfo = this.scoreEvaluator.getScore();
+    const scoreChanged = 
+      this.currentGameState.score !== scoreInfo.correct ||
+      this.currentGameState.totalNotes !== scoreInfo.total;
+    
+    if (scoreChanged) {
+      this.currentGameState.score = scoreInfo.correct;
+      this.currentGameState.accuracy = scoreInfo.accuracy;
+      this.currentGameState.totalNotes = scoreInfo.total;
+      this.updateGameStateDisplay();
+    }
+
     // 楽譜のノートを自動再生
     this.playScheduledNotes(currentTime);
   }
