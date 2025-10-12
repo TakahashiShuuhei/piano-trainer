@@ -25,13 +25,41 @@ export class ContentLoader {
     
     return null; // パラメータなし
   }
+
+  /**
+   * ローカルファイルから楽曲データを読み込み
+   */
+  public async loadFromFile(file: File): Promise<MusicalNote[]> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        try {
+          const jsonString = event.target?.result as string;
+          const jsonData = JSON.parse(jsonString);
+          resolve(this.processSongData(jsonData));
+        } catch (error) {
+          reject(new Error('ファイルの読み込みに失敗しました'));
+        }
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('ファイルの読み込みに失敗しました'));
+      };
+      
+      reader.readAsText(file, 'utf-8');
+    });
+  }
   
   /**
    * 外部URLからJSONファイルを読み込み
    */
   private async loadFromExternalURL(url: string): Promise<MusicalNote[]> {
     try {
-      const response = await fetch(url);
+      // CORSプロキシを使用する場合のオプション
+      const corsProxyUrl = this.shouldUseCorsProxy(url) ? `https://cors-anywhere.herokuapp.com/${url}` : url;
+      
+      const response = await fetch(corsProxyUrl);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -44,6 +72,26 @@ export class ContentLoader {
       console.error('Failed to load song from URL:', error);
       throw new Error(`楽曲の読み込みに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * CORSプロキシが必要かどうかを判定
+   */
+  private shouldUseCorsProxy(url: string): boolean {
+    // 同一オリジンまたは相対パスの場合はプロキシ不要
+    const currentOrigin = window.location.origin;
+    
+    // GitHub Gist Raw URLはCORS対応済み
+    if (url.includes('gist.githubusercontent.com')) {
+      return false;
+    }
+    
+    // GitHub Pages内のファイル
+    if (url.includes('github.io') || url.includes('githubusercontent.com')) {
+      return false;
+    }
+    
+    return !url.startsWith(currentOrigin) && !url.startsWith('/') && !url.startsWith('./');
   }
   
   /**

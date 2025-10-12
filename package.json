@@ -6,7 +6,7 @@
   "scripts": {
     "build": "esbuild src/index.ts --bundle --outfile=dist/bundle.js --format=iife --platform=browser --target=es2020 && cp src/index.html dist/index.html",
     "dev": "esbuild src/index.ts --bundle --outfile=dist/bundle.js --format=iife --platform=browser --target=es2020 --watch",
-    "serve": "http-server dist",
+    "serve": "http-server dist --cors",
     "test": "jest"
   },
   "dependencies": {
