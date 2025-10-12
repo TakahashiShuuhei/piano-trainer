@@ -51,13 +51,37 @@ export class ContentLoader {
    */
   private loadFromBase64(base64Data: string): MusicalNote[] {
     try {
-      const jsonString = atob(base64Data);
+      // UTF-8対応のBase64デコード
+      const jsonString = this.decodeBase64UTF8(base64Data);
       const jsonData = JSON.parse(jsonString);
       return this.processSongData(jsonData);
       
     } catch (error) {
       console.error('Failed to decode base64 data:', error);
       throw new Error('Base64データの解析に失敗しました');
+    }
+  }
+
+  /**
+   * UTF-8対応のBase64デコード
+   */
+  private decodeBase64UTF8(base64: string): string {
+    try {
+      // 標準のatobを使用してバイナリ文字列を取得
+      const binaryString = atob(base64);
+      
+      // バイナリ文字列をUint8Arrayに変換
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // UTF-8デコード
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch (error) {
+      // フォールバック：標準のatobを使用
+      console.warn('UTF-8 decoding failed, falling back to standard atob:', error);
+      return atob(base64);
     }
   }
   
@@ -186,7 +210,7 @@ export class ContentLoader {
       // Base64エンコードされたJSONデータ
       const dataParam = urlParams.get('data');
       if (dataParam) {
-        const jsonString = atob(dataParam);
+        const jsonString = this.decodeBase64UTF8(dataParam);
         const jsonData = JSON.parse(jsonString);
         return jsonData.title || null;
       }
@@ -216,7 +240,7 @@ export class ContentLoader {
       // Base64エンコードされたJSONデータ
       const dataParam = urlParams.get('data');
       if (dataParam) {
-        const jsonString = atob(dataParam);
+        const jsonString = this.decodeBase64UTF8(dataParam);
         const jsonData = JSON.parse(jsonString);
         return jsonData.bpm || 120;
       }
