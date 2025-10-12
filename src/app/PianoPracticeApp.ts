@@ -289,7 +289,7 @@ export class PianoPracticeApp {
     this.currentGameState.isPlaying = false;
     this.currentGameState.countdownValue = 4;
 
-    // 既存の楽曲データを時間ベースに変換（カウントダウン中に準備）
+    // カウントダウン中にノートを表示するため、楽曲データを時間ベースに変換
     this.updateCurrentNotes();
 
     // カウントダウン中の時間を設定（最初のノートがカウントダウン終了時にタイミングラインに到達するように）
@@ -389,9 +389,8 @@ export class PianoPracticeApp {
     this.currentGameState.currentTime = 0;
     this.currentGameState.countdownValue = undefined;
 
-    // ノートをクリア
+    // 表示用ノートのみクリア（楽曲データは保持）
     this.currentNotes = [];
-    this.musicalNotes = [];
 
     // 演奏ガイドをクリア
     this.uiRenderer.clearTargetKeys();
@@ -609,8 +608,7 @@ export class PianoPracticeApp {
       { pitch: 76, timing: { beat: 12 + 2 / 3, duration: 1 / 3 }, velocity: 80 }, // E5: 3連符3つ目
     ];
 
-    // 音楽的ノートを時間ベースに変換してUIRenderer用に設定
-    this.updateCurrentNotes();
+    // ノートの変換はゲーム開始時に行う
 
 
   }
