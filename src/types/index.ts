@@ -8,8 +8,6 @@ export interface MusicalNote {
   pitch: number;        // MIDI note number (0-127)
   timing: MusicalTiming;
   velocity: number;     // 0-127
-  isChord?: boolean;    // true if part of chord
-  chordNotes?: number[]; // other notes in chord
 }
 
 // Legacy time-based note (for backward compatibility)
@@ -18,8 +16,6 @@ export interface Note {
   startTime: number;    // milliseconds from start
   duration: number;     // milliseconds
   velocity: number;     // 0-127
-  isChord?: boolean;    // true if part of chord
-  chordNotes?: number[]; // other notes in chord
 }
 
 export interface PracticeContent {

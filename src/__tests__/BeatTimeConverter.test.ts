@@ -80,15 +80,12 @@ describe('BeatTimeConverter', () => {
       const musicalNote: MusicalNote = {
         pitch: 60,
         timing: { beat: 0, duration: 2 },
-        velocity: 80,
-        isChord: true,
-        chordNotes: [64, 67]
+        velocity: 80
       };
 
       const timeNote = converter.convertNote(musicalNote);
 
-      expect(timeNote.isChord).toBe(true);
-      expect(timeNote.chordNotes).toEqual([64, 67]);
+      expect(timeNote.pitch).toBe(60);
     });
   });
 

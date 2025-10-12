@@ -63,13 +63,9 @@ export class BeatTimeConverter implements IBeatTimeConverter {
       velocity: musicalNote.velocity
     };
     
-    if (musicalNote.isChord !== undefined) {
-      result.isChord = musicalNote.isChord;
-    }
+
     
-    if (musicalNote.chordNotes !== undefined) {
-      result.chordNotes = musicalNote.chordNotes;
-    }
+
     
     return result;
   }
@@ -98,13 +94,9 @@ export class BeatTimeConverter implements IBeatTimeConverter {
       velocity: note.velocity
     };
     
-    if (note.isChord !== undefined) {
-      result.isChord = note.isChord;
-    }
+
     
-    if (note.chordNotes !== undefined) {
-      result.chordNotes = note.chordNotes;
-    }
+
     
     return result;
   }

@@ -542,18 +542,18 @@ export class PianoPracticeApp {
       { pitch: 65, timing: { beat: 3, duration: 1 }, velocity: 75 },    // F4: 3拍目
 
       // コード（和音）のテスト - Cメジャーコード
-      { pitch: 60, timing: { beat: 4, duration: 2 }, velocity: 80, isChord: true, chordNotes: [64, 67] }, // C4
-      { pitch: 64, timing: { beat: 4, duration: 2 }, velocity: 80, isChord: true },                        // E4
-      { pitch: 67, timing: { beat: 4, duration: 2 }, velocity: 80, isChord: true },                        // G4
+      { pitch: 60, timing: { beat: 4, duration: 2 }, velocity: 80 }, // C4
+      { pitch: 64, timing: { beat: 4, duration: 2 }, velocity: 80 }, // E4
+      { pitch: 67, timing: { beat: 4, duration: 2 }, velocity: 80 }, // G4
 
       // 黒鍵のテスト
       { pitch: 61, timing: { beat: 6, duration: 0.5 }, velocity: 70 },   // C#4: 6拍目（八分音符）
       { pitch: 63, timing: { beat: 6.5, duration: 0.5 }, velocity: 70 }, // D#4: 6.5拍目（八分音符）
 
       // より複雑なコード - Amコード
-      { pitch: 57, timing: { beat: 8, duration: 3 }, velocity: 85, isChord: true, chordNotes: [60, 64] }, // A3
-      { pitch: 60, timing: { beat: 8, duration: 3 }, velocity: 85, isChord: true },                       // C4
-      { pitch: 64, timing: { beat: 8, duration: 3 }, velocity: 85, isChord: true },                       // E4
+      { pitch: 57, timing: { beat: 8, duration: 3 }, velocity: 85 }, // A3
+      { pitch: 60, timing: { beat: 8, duration: 3 }, velocity: 85 }, // C4
+      { pitch: 64, timing: { beat: 8, duration: 3 }, velocity: 85 }, // E4
 
       // 3連符のテスト
       { pitch: 72, timing: { beat: 12, duration: 1 / 3 }, velocity: 80 },     // C5: 12拍目（3連符1つ目）
@@ -747,10 +747,10 @@ export class PianoPracticeApp {
 
     // スコア表示を更新（アクティブノートが変わった可能性があるため）
     const scoreInfo = this.scoreEvaluator.getScore();
-    const scoreChanged = 
+    const scoreChanged =
       this.currentGameState.score !== scoreInfo.correct ||
       this.currentGameState.totalNotes !== scoreInfo.total;
-    
+
     if (scoreChanged) {
       this.currentGameState.score = scoreInfo.correct;
       this.currentGameState.accuracy = scoreInfo.accuracy;
