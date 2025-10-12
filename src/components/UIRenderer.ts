@@ -412,14 +412,7 @@ export class UIRenderer {
       this.drawNote(x, y, note, state, currentTime >= timing, noteHeight);
     });
 
-    // コード名を表示
-    if (notes.length >= 3) {
-      const chordName = this.getChordName(notes);
-      this.ctx.fillStyle = currentColors.chord;
-      this.ctx.font = '14px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(chordName, (minX + maxX) / 2, y - 10);
-    }
+
   }
 
 
@@ -882,48 +875,9 @@ export class UIRenderer {
     return '#ffffff';
   }
 
-  /**
-   * ユーティリティ: コード名を取得
-   */
-  private getChordName(notes: Note[]): string {
-    if (notes.length < 3) return '';
 
-    // 簡易的なコード判定（基本的な三和音のみ）
-    const pitches = notes.map(note => note.pitch % 12).sort((a, b) => a - b);
-    const intervals = [];
 
-    for (let i = 1; i < pitches.length; i++) {
-      const currentPitch = pitches[i];
-      const rootPitch = pitches[0];
-      if (currentPitch !== undefined && rootPitch !== undefined) {
-        intervals.push(currentPitch - rootPitch);
-      }
-    }
 
-    // 基本的なコードパターンを判定
-    const intervalString = intervals.join(',');
-    const firstNote = notes[0];
-    if (!firstNote) return '';
-    const rootNote = this.midiNoteToName(firstNote.pitch).replace(/\d+/, '');
-
-    switch (intervalString) {
-      case '4,7': return rootNote + 'maj';
-      case '3,7': return rootNote + 'min';
-      case '4,7,10': return rootNote + '7';
-      case '3,7,10': return rootNote + 'm7';
-      default: return rootNote + '?';
-    }
-  }
-
-  /**
-   * ユーティリティ: MIDIノート番号を音名に変換
-   */
-  private midiNoteToName(pitch: number): string {
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const octave = Math.floor(pitch / 12) - 1;
-    const note = noteNames[pitch % 12];
-    return `${note}${octave}`;
-  }
 
   /**
    * ユーティリティ: 角丸矩形を描画
