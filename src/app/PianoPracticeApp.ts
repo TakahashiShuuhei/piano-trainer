@@ -17,6 +17,7 @@ import { BeatTimeConverter } from '../utils/BeatTimeConverter';
 import { MusicalTimeManager } from '../utils/MusicalTimeManager';
 import { AudioFeedbackManager } from '../utils/AudioFeedbackManager';
 import { ScoreEvaluator } from '../utils/ScoreEvaluator';
+import { ContentLoader } from '../utils/ContentLoader';
 
 export class PianoPracticeApp {
   private scoreEvaluator!: ScoreEvaluator;
@@ -32,6 +33,7 @@ export class PianoPracticeApp {
   private beatTimeConverter!: IBeatTimeConverter;
   private musicalTimeManager!: MusicalTimeManager;
   private audioFeedbackManager!: AudioFeedbackManager;
+  private contentLoader!: ContentLoader;
   private currentBPM = 120;
 
   // 現在のゲーム状態（UIRenderer統合用）
@@ -68,10 +70,10 @@ export class PianoPracticeApp {
       this.setupEventListeners();
 
       // 初期コンテンツの読み込み
-      this.loadInitialContent();
+      await this.loadInitialContent();
 
       this.isInitialized = true;
-
+      console.log('Piano Practice App initialized successfully');
 
     } catch (error) {
       console.error('Failed to initialize app:', error);
@@ -93,6 +95,7 @@ export class PianoPracticeApp {
       this.musicalTimeManager = new MusicalTimeManager(this.currentBPM);
       this.audioFeedbackManager = new AudioFeedbackManager();
       this.scoreEvaluator = new ScoreEvaluator();
+      this.contentLoader = new ContentLoader();
 
       // UIRendererの初期化
       this.uiRenderer = new UIRenderer();
@@ -165,9 +168,54 @@ export class PianoPracticeApp {
     this.setupLoopControls();
   }
 
-  private loadInitialContent(): void {
-    // TODO: URLパラメータからコンテンツを読み込み（タスク4.2）
-
+  private async loadInitialContent(): Promise<void> {
+    try {
+      // URLパラメータから楽曲データを読み込み
+      const musicalNotes = await this.contentLoader.loadFromURL();
+      
+      if (musicalNotes) {
+        // 外部楽曲データを使用
+        this.musicalNotes = musicalNotes;
+        
+        // BPMも外部データから取得
+        const songBPM = await this.contentLoader.getSongBPM();
+        if (songBPM) {
+          this.setBPM(songBPM);
+        }
+        
+        // タイトルを表示に反映
+        const songTitle = await this.contentLoader.getSongTitle();
+        if (songTitle) {
+          this.updateSongTitle(songTitle);
+        }
+        
+        console.log('楽曲データを読み込みました:', songTitle || '無題', `(BPM: ${songBPM || 120})`);
+      } else {
+        // デフォルトのサンプルノートを使用
+        this.loadSampleNotes();
+        console.log('デフォルトのサンプル楽曲を使用します');
+      }
+      
+    } catch (error) {
+      console.error('楽曲データの読み込みに失敗:', error);
+      
+      // エラー時はデフォルトのサンプルノートを使用
+      this.loadSampleNotes();
+      
+      // ユーザーフレンドリーなメッセージを表示
+      const errorMessage = error instanceof Error ? error.message : '楽曲データの読み込みに失敗しました';
+      this.showError(`${errorMessage} デフォルトの楽曲を使用します。`);
+    }
+  }
+  
+  /**
+   * 楽曲タイトルをUIに反映
+   */
+  private updateSongTitle(title: string): void {
+    const headerElement = document.querySelector('.header h1');
+    if (headerElement) {
+      headerElement.textContent = `🎹 ${title}`;
+    }
   }
 
   private async handleMidiConnect(): Promise<void> {
@@ -241,8 +289,8 @@ export class PianoPracticeApp {
     this.currentGameState.isPlaying = false;
     this.currentGameState.countdownValue = 4;
 
-    // サンプルノートを追加（カウントダウン中に準備）
-    this.loadSampleNotes();
+    // 既存の楽曲データを時間ベースに変換（カウントダウン中に準備）
+    this.updateCurrentNotes();
 
     // カウントダウン中の時間を設定（最初のノートがカウントダウン終了時にタイミングラインに到達するように）
     const beatDuration = 60000 / this.currentBPM; // 1拍の長さ（ミリ秒）

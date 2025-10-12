@@ -1,0 +1,230 @@
+import { SongData, SongNote, MusicalNote } from '../types/index.js';
+
+/**
+ * 楽曲データの読み込みとバリデーションを行うクラス
+ */
+export class ContentLoader {
+  
+  /**
+   * URLパラメータから楽曲データを読み込み
+   */
+  public async loadFromURL(): Promise<MusicalNote[] | null> {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 外部JSONファイルのURL指定
+    const songUrl = urlParams.get('song');
+    if (songUrl) {
+      return await this.loadFromExternalURL(songUrl);
+    }
+    
+    // Base64エンコードされたJSONデータ
+    const dataParam = urlParams.get('data');
+    if (dataParam) {
+      return this.loadFromBase64(dataParam);
+    }
+    
+    return null; // パラメータなし
+  }
+  
+  /**
+   * 外部URLからJSONファイルを読み込み
+   */
+  private async loadFromExternalURL(url: string): Promise<MusicalNote[]> {
+    try {
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const jsonData = await response.json();
+      return this.processSongData(jsonData);
+      
+    } catch (error) {
+      console.error('Failed to load song from URL:', error);
+      throw new Error(`楽曲の読み込みに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+  
+  /**
+   * Base64エンコードされたJSONデータを読み込み
+   */
+  private loadFromBase64(base64Data: string): MusicalNote[] {
+    try {
+      const jsonString = atob(base64Data);
+      const jsonData = JSON.parse(jsonString);
+      return this.processSongData(jsonData);
+      
+    } catch (error) {
+      console.error('Failed to decode base64 data:', error);
+      throw new Error('Base64データの解析に失敗しました');
+    }
+  }
+  
+  /**
+   * SongDataをMusicalNoteに変換し、バリデーションを実行
+   */
+  private processSongData(data: any): MusicalNote[] {
+    // バリデーション
+    const songData = this.validateSongData(data);
+    
+    // 空のノート配列の場合は警告を出すが処理は続行
+    if (songData.notes.length === 0) {
+      console.warn('楽曲データにノートが含まれていません。空の楽曲として読み込みます。');
+    }
+    
+    // SongNoteをMusicalNoteに変換
+    return this.convertToMusicalNotes(songData);
+  }
+  
+  /**
+   * SongDataのバリデーション
+   */
+  private validateSongData(data: any): SongData {
+    if (!data || typeof data !== 'object') {
+      throw new Error('楽曲データが正しくありません');
+    }
+    
+    // title の検証
+    if (!data.title || typeof data.title !== 'string') {
+      throw new Error('楽曲タイトルが必要です');
+    }
+    
+    // bpm の検証（オプション）
+    if (data.bpm !== undefined) {
+      if (typeof data.bpm !== 'number' || data.bpm < 60 || data.bpm > 200) {
+        throw new Error('BPMは60-200の範囲で指定してください');
+      }
+    }
+    
+    // notes の検証
+    if (!Array.isArray(data.notes)) {
+      throw new Error('notesは配列である必要があります');
+    }
+    
+    // 各ノートの検証
+    data.notes.forEach((note: any, index: number) => {
+      this.validateSongNote(note, index);
+    });
+    
+    return {
+      title: data.title,
+      bpm: data.bpm || 120, // デフォルト値
+      notes: data.notes
+    };
+  }
+  
+  /**
+   * SongNoteのバリデーション
+   */
+  private validateSongNote(note: any, index: number): void {
+    const notePrefix = `ノート${index + 1}`;
+    
+    if (!note || typeof note !== 'object') {
+      throw new Error(`${notePrefix}: ノートデータが正しくありません`);
+    }
+    
+    // pitch の検証
+    if (typeof note.pitch !== 'number' || note.pitch < 0 || note.pitch > 127) {
+      throw new Error(`${notePrefix}: pitchは0-127の範囲で指定してください`);
+    }
+    
+    // timing の検証
+    if (!note.timing || typeof note.timing !== 'object') {
+      throw new Error(`${notePrefix}: timingが必要です`);
+    }
+    
+    // beat の検証
+    if (typeof note.timing.beat !== 'number' || note.timing.beat < 0) {
+      throw new Error(`${notePrefix}: beatは0以上の数値で指定してください`);
+    }
+    
+    // duration の検証（オプション）
+    if (note.timing.duration !== undefined) {
+      if (typeof note.timing.duration !== 'number' || note.timing.duration <= 0) {
+        throw new Error(`${notePrefix}: durationは0より大きい数値で指定してください`);
+      }
+    }
+    
+    // velocity の検証（オプション）
+    if (note.velocity !== undefined) {
+      if (typeof note.velocity !== 'number' || note.velocity < 0 || note.velocity > 127) {
+        throw new Error(`${notePrefix}: velocityは0-127の範囲で指定してください`);
+      }
+    }
+  }
+  
+  /**
+   * SongDataをMusicalNoteに変換
+   */
+  private convertToMusicalNotes(songData: SongData): MusicalNote[] {
+    return songData.notes.map((songNote: SongNote): MusicalNote => ({
+      pitch: songNote.pitch,
+      timing: {
+        beat: songNote.timing.beat,
+        duration: songNote.timing.duration || 1 // デフォルト値
+      },
+      velocity: songNote.velocity || 80 // デフォルト値
+    }));
+  }
+  
+  /**
+   * 楽曲データのタイトルを取得
+   */
+  public async getSongTitle(): Promise<string | null> {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // 外部JSONファイルのURL指定
+      const songUrl = urlParams.get('song');
+      if (songUrl) {
+        const response = await fetch(songUrl);
+        const jsonData = await response.json();
+        return jsonData.title || null;
+      }
+      
+      // Base64エンコードされたJSONデータ
+      const dataParam = urlParams.get('data');
+      if (dataParam) {
+        const jsonString = atob(dataParam);
+        const jsonData = JSON.parse(jsonString);
+        return jsonData.title || null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to get song title:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * 楽曲データのBPMを取得
+   */
+  public async getSongBPM(): Promise<number | null> {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // 外部JSONファイルのURL指定
+      const songUrl = urlParams.get('song');
+      if (songUrl) {
+        const response = await fetch(songUrl);
+        const jsonData = await response.json();
+        return jsonData.bpm || 120;
+      }
+      
+      // Base64エンコードされたJSONデータ
+      const dataParam = urlParams.get('data');
+      if (dataParam) {
+        const jsonString = atob(dataParam);
+        const jsonData = JSON.parse(jsonString);
+        return jsonData.bpm || 120;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to get song BPM:', error);
+      return null;
+    }
+  }
+}

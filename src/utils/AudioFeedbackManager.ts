@@ -17,14 +17,12 @@ export class AudioFeedbackManager {
 
   /**
    * オーディオシステムを初期化（Web Audio APIのみ）
+   * AudioContextの作成はユーザージェスチャー後に行う
    */
   private initializeAudio(): void {
     try {
-      // Web Audio APIのAudioContextを初期化
-      if (!this.webAudioContext) {
-        this.webAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-
+      // AudioContextの作成はstartAudioContext()で行う
+      // ここでは初期化フラグのみ設定
       this.useWebAudioOnly = true;
       this.isInitialized = true;
     } catch (error) {

@@ -28,6 +28,24 @@ export interface PracticeContent {
   duration: number;
 }
 
+// JSON楽曲データの型定義（仕様に基づく）
+export interface SongData {
+  title: string;
+  bpm?: number;        // デフォルト: 120
+  notes: SongNote[];
+}
+
+export interface SongNote {
+  pitch: number;       // MIDI note number (0-127)
+  timing: SongTiming;
+  velocity?: number;   // デフォルト: 80
+}
+
+export interface SongTiming {
+  beat: number;        // 開始位置（四分音符単位）
+  duration?: number;   // デフォルト: 1
+}
+
 export interface PracticeSession {
   contentId: string;
   startTime: Date;
