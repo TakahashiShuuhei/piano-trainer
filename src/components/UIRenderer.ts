@@ -302,11 +302,11 @@ export class UIRenderer {
 
     // ノートの高さを事前に計算
     const isBlackKey = this.isBlackKey(note.pitch);
-    const baseDuration = 500; // 基準となるduration（ミリ秒）
-    const minHeight = 20;
-    const maxHeight = 100;
-    const durationRatio = Math.min(note.duration / baseDuration, 3); // 最大3倍まで
-    const noteHeight = Math.max(minHeight, Math.min(maxHeight, minHeight + (durationRatio * 30)));
+    const baseDuration = 500; // 基準となるduration（ミリ秒）- 四分音符
+    const minHeight = 30;     // 最小高さを増加
+    const maxHeight = 150;    // 最大高さを増加
+    const durationRatio = Math.min(note.duration / baseDuration, 4); // 最大4倍まで
+    const noteHeight = Math.max(minHeight, Math.min(maxHeight, minHeight + (durationRatio * 40))); // より大きな差をつける
 
     // ノートの表示タイミングを計算
     const showTime = note.startTime - 2000;
