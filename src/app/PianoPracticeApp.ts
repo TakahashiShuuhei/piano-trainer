@@ -217,12 +217,16 @@ export class PianoPracticeApp {
   private async handleStart(): Promise<void> {
     if (!this.isInitialized) return;
 
-
     // オーディオコンテキストを開始（ユーザージェスチャー）
     await this.audioFeedbackManager.startAudioContext();
 
     // ScoreEvaluatorをリセット
     this.scoreEvaluator.reset();
+
+    // ゲーム状態のスコアもリセット
+    this.currentGameState.score = 0;
+    this.currentGameState.accuracy = 1.0;
+    this.currentGameState.totalNotes = 0;
 
     // カウントダウンを開始
     this.startCountdown();
@@ -331,12 +335,10 @@ export class PianoPracticeApp {
     // 音楽的時間管理を停止
     this.musicalTimeManager.stop();
 
-    // ゲーム状態をリセット
+    // ゲーム状態をリセット（スコアは保持）
     this.currentGameState.phase = GamePhase.STOPPED;
     this.currentGameState.isPlaying = false;
     this.currentGameState.currentTime = 0;
-    this.currentGameState.score = 0;
-    this.currentGameState.accuracy = 1.0;
     this.currentGameState.countdownValue = undefined;
 
     // ノートをクリア
