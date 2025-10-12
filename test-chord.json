@@ -1,0 +1,21 @@
+{
+  "title": "和音テスト",
+  "bpm": 120,
+  "notes": [
+    {"pitch": 60, "timing": {"beat": 0, "duration": 2}, "velocity": 80},
+    {"pitch": 64, "timing": {"beat": 0, "duration": 2}, "velocity": 80},
+    {"pitch": 67, "timing": {"beat": 0, "duration": 2}, "velocity": 80},
+    
+    {"pitch": 65, "timing": {"beat": 2, "duration": 2}, "velocity": 80},
+    {"pitch": 69, "timing": {"beat": 2, "duration": 2}, "velocity": 80},
+    {"pitch": 72, "timing": {"beat": 2, "duration": 2}, "velocity": 80},
+    
+    {"pitch": 62, "timing": {"beat": 4, "duration": 2}, "velocity": 80},
+    {"pitch": 65, "timing": {"beat": 4, "duration": 2}, "velocity": 80},
+    {"pitch": 69, "timing": {"beat": 4, "duration": 2}, "velocity": 80},
+    
+    {"pitch": 60, "timing": {"beat": 6, "duration": 2}, "velocity": 80},
+    {"pitch": 64, "timing": {"beat": 6, "duration": 2}, "velocity": 80},
+    {"pitch": 67, "timing": {"beat": 6, "duration": 2}, "velocity": 80}
+  ]
+}

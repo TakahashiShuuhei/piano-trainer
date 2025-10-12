@@ -1,0 +1,23 @@
+{
+  "title": "ドレミファソラシド",
+  "bpm": 140,
+  "notes": [
+    {"pitch": 60, "timing": {"beat": 0, "duration": 0.5}, "velocity": 80},
+    {"pitch": 62, "timing": {"beat": 0.5, "duration": 0.5}, "velocity": 80},
+    {"pitch": 64, "timing": {"beat": 1, "duration": 0.5}, "velocity": 80},
+    {"pitch": 65, "timing": {"beat": 1.5, "duration": 0.5}, "velocity": 80},
+    {"pitch": 67, "timing": {"beat": 2, "duration": 0.5}, "velocity": 80},
+    {"pitch": 69, "timing": {"beat": 2.5, "duration": 0.5}, "velocity": 80},
+    {"pitch": 71, "timing": {"beat": 3, "duration": 0.5}, "velocity": 80},
+    {"pitch": 72, "timing": {"beat": 3.5, "duration": 0.5}, "velocity": 80},
+    
+    {"pitch": 72, "timing": {"beat": 4, "duration": 0.5}, "velocity": 80},
+    {"pitch": 71, "timing": {"beat": 4.5, "duration": 0.5}, "velocity": 80},
+    {"pitch": 69, "timing": {"beat": 5, "duration": 0.5}, "velocity": 80},
+    {"pitch": 67, "timing": {"beat": 5.5, "duration": 0.5}, "velocity": 80},
+    {"pitch": 65, "timing": {"beat": 6, "duration": 0.5}, "velocity": 80},
+    {"pitch": 64, "timing": {"beat": 6.5, "duration": 0.5}, "velocity": 80},
+    {"pitch": 62, "timing": {"beat": 7, "duration": 0.5}, "velocity": 80},
+    {"pitch": 60, "timing": {"beat": 7.5, "duration": 1}, "velocity": 80}
+  ]
+}
