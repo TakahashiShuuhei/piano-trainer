@@ -257,16 +257,14 @@ export class UIRenderer {
     // タイミングラインを描画
     this.drawTimingLine(height - keyboardHeight);
 
-    // ノートをグループ化（コード検出）
-    const noteGroups = this.groupNotesByTiming(notes, currentTime);
+    // 全てのノートを個別に描画（シンプル化）
+    notes.forEach(note => {
+      // 表示範囲内のノートのみ処理
+      const showTime = note.startTime - 2000;
+      const hideTime = note.startTime + note.duration + 1000;
 
-    noteGroups.forEach(group => {
-      if (group.notes.length > 1) {
-        // コード（和音）として描画
-        this.drawChord(group.notes, group.timing, currentTime, noteAreaHeight);
-      } else if (group.notes.length === 1 && group.notes[0]) {
-        // 単音として描画
-        this.drawSingleNote(group.notes[0], currentTime, noteAreaHeight);
+      if (currentTime >= showTime && currentTime <= hideTime) {
+        this.drawSingleNote(note, currentTime, noteAreaHeight);
       }
     });
   }
@@ -292,43 +290,7 @@ export class UIRenderer {
     this.ctx.setLineDash([]); // リセット
   }
 
-  /**
-   * ノートをタイミングでグループ化
-   */
-  private groupNotesByTiming(notes: Note[], currentTime: number): Array<{ notes: Note[], timing: number }> {
-    const groups = new Map<number, Note[]>();
-    const tolerance = 50; // 50ms以内は同じタイミングとみなす
 
-    let visibleNotesCount = 0;
-
-    notes.forEach(note => {
-      // 表示範囲内のノートのみ処理
-      const showTime = note.startTime - 2000;
-      const hideTime = note.startTime + note.duration + 1000; // ノートの長さ + 鍵盤を通り過ぎるまで表示
-
-      if (currentTime >= showTime && currentTime <= hideTime) {
-        visibleNotesCount++;
-        let foundGroup = false;
-
-        for (const [timing, groupNotes] of groups) {
-          if (Math.abs(note.startTime - timing) <= tolerance) {
-            groupNotes.push(note);
-            foundGroup = true;
-            break;
-          }
-        }
-
-        if (!foundGroup) {
-          groups.set(note.startTime, [note]);
-        }
-      }
-    });
-
-    return Array.from(groups.entries()).map(([timing, notes]) => ({
-      notes,
-      timing
-    }));
-  }
 
   /**
    * 単音ノートを描画
@@ -371,55 +333,7 @@ export class UIRenderer {
     this.drawNote(x, y, note, state, currentTime >= note.startTime, noteHeight);
   }
 
-  /**
-   * コード（和音）を描画
-   */
-  private drawChord(notes: Note[], timing: number, currentTime: number, noteAreaHeight: number): void {
-    if (!this.ctx || !this.canvas) return;
 
-    const width = this.canvas.width / window.devicePixelRatio;
-    const currentColors = this.colors[this.theme];
-
-    // コードの表示タイミングを計算
-    const showTime = timing - 2000;
-    const progress = Math.max(0, (currentTime - showTime) / 2000); // 上限を削除してノートが下に流れ続ける
-
-    // ノートの高さを計算（コードの場合も duration に応じて計算）
-    const baseDuration = 500; // 基準となるduration（ミリ秒）
-    const minHeight = 20;
-    const maxHeight = 100;
-    // 和音の場合は最初のノートの duration を使用
-    const firstNote = notes[0];
-    const durationRatio = firstNote ? Math.min(firstNote.duration / baseDuration, 3) : 1; // 最大3倍まで
-    const noteHeight = Math.max(minHeight, Math.min(maxHeight, minHeight + (durationRatio * 30)));
-    const y = progress * noteAreaHeight - noteHeight;
-
-    // ノートが画面外に出た場合は描画しない
-    const height = this.canvas.height / window.devicePixelRatio;
-    if (y > height) {
-      return;
-    }
-
-    // コードの範囲を計算
-    const positions = notes.map(note => this.getPreciseNoteXPosition(note.pitch, width));
-    const minX = Math.min(...positions);
-    const maxX = Math.max(...positions);
-
-    // コード背景を描画
-    this.ctx.fillStyle = currentColors.chord + '20'; // 透明度20%
-    this.ctx.fillRect(minX - 10, y - 5, maxX - minX + 20, noteHeight + 10);
-
-    // 個別のノートを描画
-    notes.forEach(note => {
-      const x = this.getPreciseNoteXPosition(note.pitch, width);
-      const noteId = `${note.pitch}-${note.startTime}`;
-      const state = this.noteStates.get(noteId) || 'pending';
-
-      this.drawNote(x, y, note, state, currentTime >= timing, noteHeight);
-    });
-
-
-  }
 
 
 
