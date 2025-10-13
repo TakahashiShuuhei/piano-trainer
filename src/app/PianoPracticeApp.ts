@@ -166,6 +166,9 @@ export class PianoPracticeApp {
 
     // ループ練習コントロール
     this.setupLoopControls();
+
+    // 低音テストボタン
+    this.setupTestControls();
   }
 
   private async loadInitialContent(): Promise<void> {
@@ -985,6 +988,64 @@ export class PianoPracticeApp {
     if (loopEnabled) {
       loopEnabled.addEventListener('change', () => {
         this.setLoopEnabled(loopEnabled.checked);
+      });
+    }
+  }
+
+  /**
+   * テスト用コントロールを設定
+   */
+  private setupTestControls(): void {
+    const testLowFreqBtn = document.getElementById('testLowFreqBtn');
+    const testChordBtn = document.getElementById('testChordBtn');
+    const testSoundBtn = document.getElementById('testSoundBtn');
+    const testPolyphonyBtn = document.getElementById('testPolyphonyBtn');
+
+    if (testLowFreqBtn) {
+      testLowFreqBtn.addEventListener('click', async () => {
+        // オーディオコンテキストを開始
+        await this.audioFeedbackManager.startAudioContext();
+        
+        // 低音域テストを実行
+        this.audioFeedbackManager.playLowFrequencyTest();
+        
+        console.log('低音域テストを開始しました。C2からC4まで順番に再生されます。');
+      });
+    }
+
+    if (testChordBtn) {
+      testChordBtn.addEventListener('click', async () => {
+        // オーディオコンテキストを開始
+        await this.audioFeedbackManager.startAudioContext();
+        
+        // 和音テストを実行
+        this.audioFeedbackManager.playChordTest();
+        
+        console.log('和音テストを開始しました。様々なコードが順番に再生されます。');
+      });
+    }
+
+    if (testSoundBtn) {
+      testSoundBtn.addEventListener('click', async () => {
+        // オーディオコンテキストを開始
+        await this.audioFeedbackManager.startAudioContext();
+        
+        // 音色テストを実行
+        this.audioFeedbackManager.playSoundTest();
+        
+        console.log('音色テストを開始しました。異なる波形で同じ音程が再生されます。');
+      });
+    }
+
+    if (testPolyphonyBtn) {
+      testPolyphonyBtn.addEventListener('click', async () => {
+        // オーディオコンテキストを開始
+        await this.audioFeedbackManager.startAudioContext();
+        
+        // ポリフォニーテストを実行
+        this.audioFeedbackManager.playPolyphonyTest();
+        
+        console.log('ポリフォニーテストを開始しました。段階的に音数を増やして再生されます。');
       });
     }
   }

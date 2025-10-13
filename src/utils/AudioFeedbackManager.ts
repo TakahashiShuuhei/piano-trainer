@@ -1,87 +1,176 @@
-// Tone.js依存を削除 - Web Audio APIのみ使用
+const Tone = require('tone');
 
 /**
  * 音声フィードバック管理クラス
  * 正解時の音程再生、不正解時の効果音などを管理
  */
 export class AudioFeedbackManager {
-  private webAudioContext: AudioContext | null = null; // Web Audio APIコンテキスト
-  private volume: number = 0.3; // 音量 (0-1)
+  private synth: any = null; // Tone.js Synth
+  private polySynth: any = null; // Tone.js PolySynth（和音用）
+  private reverb: any = null; // リバーブエフェクト
+  private volume: number = 0.6; // 音量 (0-1)
   private isMuted: boolean = false;
   private isInitialized: boolean = false;
-  private useWebAudioOnly: boolean = true; // Web Audio APIのみを使用
 
   constructor() {
     // 初期化はユーザージェスチャー後に遅延実行
+    // Tone.jsの自動初期化を防ぐため、ここでは何もしない
   }
 
   /**
-   * オーディオシステムを初期化（Web Audio APIのみ）
-   * AudioContextの作成はユーザージェスチャー後に行う
+   * Tone.jsオーディオシステムを初期化
    */
-  private initializeAudio(): void {
+  private async initializeAudio(): Promise<void> {
     try {
-      // AudioContextの作成はstartAudioContext()で行う
-      // ここでは初期化フラグのみ設定
-      this.useWebAudioOnly = true;
+      // Tone.jsのオーディオコンテキストを開始
+      console.log('Starting Tone.js initialization...');
+      await Tone.start();
+      console.log('Tone.js context started');
+
+      // リバーブエフェクトを作成
+      this.reverb = new Tone.Reverb({
+        decay: 2.0,
+        wet: 0.2 // 20%のリバーブ
+      });
+
+      // リバーブの初期化を待つ
+      await this.reverb.generate();
+      console.log('Reverb initialized');
+
+      // メインシンセ（単音用）- 音色テスト専用
+      this.synth = new Tone.Synth({
+        oscillator: {
+          type: 'fatsawtooth' // より豊かな倍音
+        },
+        envelope: {
+          attack: 0.005,
+          decay: 0.1,
+          sustain: 0.4,
+          release: 1.0
+        }
+      });
+      console.log('Main synth created (for sound tests only)');
+
+      // ポリシンセ（和音用）- ボイス数を明示的に設定
+      this.polySynth = new Tone.PolySynth({
+        maxPolyphony: 64, // 最大16音同時発音
+        voice: Tone.Synth,
+        options: {
+          oscillator: {
+            type: 'fatsawtooth'
+          },
+          envelope: {
+            attack: 0.005,
+            decay: 0.1,
+            sustain: 0.1,
+            release: 0.01
+          }
+        }
+      });
+      console.log('PolySynth created with 16 voices');
+
+      // 音量設定
+      const volumeDb = this.volumeToDb(this.volume);
+      this.synth.volume.value = volumeDb;
+      this.polySynth.volume.value = volumeDb;
+
+      // エフェクトチェーン: Synth -> Reverb -> Destination
+      this.synth.chain(this.reverb, Tone.Destination);
+      this.polySynth.chain(this.reverb, Tone.Destination);
+
       this.isInitialized = true;
+      console.log('Tone.js audio system initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Web Audio API:', error);
+      console.error('Failed to initialize Tone.js:', error);
+      console.error('Error details:', error.message);
       this.isInitialized = false;
+      throw error; // エラーを再スローしてフォールバックを無効化
     }
   }
+
+
 
   /**
    * 正解時にノートの音程を再生
    */
   public playNoteSound(midiNote: number, duration: number = 0.5): void {
-    if (this.isMuted) {
+    if (this.isMuted || !this.isInitialized) {
       return;
     }
 
-    // Tone.jsが失敗しているため、直接Web Audio APIを使用
-    this.playNoteWithWebAudio(midiNote, duration);
+    try {
+      // MIDIノート番号を音程名に変換
+      const noteName = this.midiToNoteName(midiNote);
+
+      // PolySynthで音を再生（複数音の同時発音に対応）
+      this.polySynth.triggerAttackRelease(noteName, duration);
+
+      console.log(`Playing note: ${noteName} (MIDI ${midiNote}) for ${duration}s`);
+    } catch (error) {
+      console.error('Failed to play note:', error);
+    }
   }
 
   /**
-   * Web Audio APIを直接使用してノートを再生（フォールバック）
+   * Web Audio APIフォールバック
    */
   private playNoteWithWebAudio(midiNote: number, duration: number): void {
     try {
-      // 既存のAudioContextを再利用するか新規作成
-      if (!this.webAudioContext) {
-        this.webAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-
-      const audioContext = this.webAudioContext;
-      
-      // AudioContextが停止している場合は再開
-      if (audioContext.state === 'suspended') {
-        audioContext.resume();
-      }
-
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
-      // 周波数を設定
-      const frequency = this.midiToFrequency(midiNote);
+      const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
       oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-      oscillator.type = 'sine';
+      oscillator.type = 'triangle';
 
-      // 音量を設定（エンベロープ付き）
-      const volume = this.volume * 0.2; // 音量を調整
+      const volume = this.volume * 0.3;
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01); // アタック
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration); // リリース
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
 
-      // 音を再生
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + duration);
+
+      console.log(`Playing note with Web Audio API: MIDI ${midiNote} (${frequency.toFixed(1)}Hz)`);
     } catch (error) {
       console.error('Failed to play note with Web Audio API:', error);
+    }
+  }
+
+  /**
+   * 和音を再生
+   */
+  public playChord(midiNotes: number[], duration: number = 0.5): void {
+    if (this.isMuted || !this.isInitialized) {
+      return;
+    }
+
+    try {
+      // MIDIノート番号を音程名に変換
+      const noteNames = midiNotes.map(note => this.midiToNoteName(note));
+
+      // PolySynthの現在のボイス使用状況をログ出力
+      if (this.polySynth.activeVoices !== undefined) {
+        console.log(`Active voices before: ${this.polySynth.activeVoices}`);
+      }
+
+      // PolySynthで和音を再生
+      this.polySynth.triggerAttackRelease(noteNames, duration);
+
+      console.log(`Playing chord: [${noteNames.join(', ')}] (${noteNames.length} notes) for ${duration}s`);
+
+      // 再生後のボイス使用状況もログ出力
+      setTimeout(() => {
+        if (this.polySynth.activeVoices !== undefined) {
+          console.log(`Active voices after: ${this.polySynth.activeVoices}`);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Failed to play chord:', error);
     }
   }
 
@@ -89,15 +178,15 @@ export class AudioFeedbackManager {
    * 不正解時の効果音を再生
    */
   public playErrorSound(): void {
-    if (this.isMuted) return;
+    if (this.isMuted || !this.isInitialized) return;
 
     try {
-      // 不協和音的な効果音
-      const frequencies = [200, 250, 300]; // 不協和な周波数
-      
-      frequencies.forEach((freq, index) => {
+      // 不協和音的な効果音（短2度の不協和音）
+      const errorNotes = ['C4', 'Db4', 'D4']; // 不協和な音程
+
+      errorNotes.forEach((note, index) => {
         setTimeout(() => {
-          this.playBeepWithWebAudio(freq, 0.1);
+          this.polySynth.triggerAttackRelease(note, 0.1);
         }, index * 50);
       });
     } catch (error) {
@@ -109,15 +198,15 @@ export class AudioFeedbackManager {
    * 成功時の効果音を再生
    */
   public playSuccessSound(): void {
-    if (this.isMuted) return;
+    if (this.isMuted || !this.isInitialized) return;
 
     try {
-      // 上昇する音階
-      const frequencies = [440, 554, 659]; // A4, C#5, E5 (Aメジャーコード)
-      
-      frequencies.forEach((freq, index) => {
+      // 上昇するアルペジオ（Aメジャーコード）
+      const successNotes = ['A4', 'C#5', 'E5'];
+
+      successNotes.forEach((note, index) => {
         setTimeout(() => {
-          this.playBeepWithWebAudio(freq, 0.3);
+          this.polySynth.triggerAttackRelease(note, 0.3);
         }, index * 100);
       });
     } catch (error) {
@@ -126,58 +215,22 @@ export class AudioFeedbackManager {
   }
 
   /**
-   * カウントダウン音を再生（既存のビープ音を置き換え）
+   * カウントダウン音を再生
    */
   public playCountdownBeep(count: number): void {
-    if (this.isMuted) {
+    if (this.isMuted || !this.isInitialized) {
       return;
     }
 
-    // カウントが小さいほど高い音
-    const frequency = count === 0 ? 880 : 660; // A5 or E5
-    const duration = count === 0 ? 0.5 : 0.2;
-    
-    // Web Audio APIを使用
-    this.playBeepWithWebAudio(frequency, duration);
-  }
-
-  /**
-   * Web Audio APIでビープ音を再生
-   */
-  private playBeepWithWebAudio(frequency: number, duration: number): void {
     try {
-      // 既存のAudioContextを再利用するか新規作成
-      if (!this.webAudioContext) {
-        this.webAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
+      // カウントが小さいほど高い音
+      const note = count === 0 ? 'A5' : 'E5';
+      const duration = count === 0 ? 0.5 : 0.2;
 
-      const audioContext = this.webAudioContext;
-      
-      // AudioContextが停止している場合は再開
-      if (audioContext.state === 'suspended') {
-        audioContext.resume();
-      }
-
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-      oscillator.type = 'sine';
-
-      // 音量を設定
-      const volume = this.volume * 0.3;
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
-
-      // 音を再生
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + duration);
+      // PolySynthでカウントダウン音を再生
+      this.polySynth.triggerAttackRelease(note, duration);
     } catch (error) {
-      console.error('Failed to play beep with Web Audio API:', error);
+      console.error('Failed to play countdown beep:', error);
     }
   }
 
@@ -186,9 +239,40 @@ export class AudioFeedbackManager {
    */
   public setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
+
+    // Tone.jsシンセの音量も更新
+    if (this.isInitialized) {
+      const dbValue = this.volumeToDb(this.volume);
+      if (this.synth) {
+        this.synth.volume.value = dbValue;
+      }
+      if (this.polySynth) {
+        this.polySynth.volume.value = dbValue;
+      }
+    }
   }
 
-  /**
+  /**t gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      oscillator.type = 'sine';
+
+      const volume = this.volume * 0.3;
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+      
+      console.log(`Playing beep with Web Audio API: ${frequency}Hz for ${duration}s`);
+    } catch (error) {
+      console.error('Failed to play beep with Web Audio API:', error);
+    }
+  }
    * 現在の音量を取得 (0-1)
    */
   public getVolume(): number {
@@ -218,11 +302,22 @@ export class AudioFeedbackManager {
   }
 
   /**
-   * MIDIノート番号を周波数に変換
+   * MIDIノート番号を音程名に変換（Tone.js用）
    */
-  private midiToFrequency(midiNote: number): number {
-    // A4 (440Hz) = MIDI note 69
-    return 440 * Math.pow(2, (midiNote - 69) / 12);
+  private midiToNoteName(midiNote: number): string {
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(midiNote / 12) - 1;
+    const noteName = noteNames[midiNote % 12];
+    return `${noteName}${octave}`;
+  }
+
+  /**
+   * 音量（0-1）をデシベル値に変換
+   */
+  private volumeToDb(volume: number): number {
+    if (volume <= 0) return -Infinity;
+    // 0-1を-40dB〜0dBに変換（より自然な音量カーブ）
+    return Math.log10(volume) * 20;
   }
 
   /**
@@ -232,38 +327,136 @@ export class AudioFeedbackManager {
     try {
       // 初回初期化
       if (!this.isInitialized) {
-        this.initializeAudio();
+        await this.initializeAudio();
       }
-      
-      // Web Audio APIのコンテキストを取得
-      if (!this.webAudioContext) {
-        this.webAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      
-      const contextState = this.webAudioContext.state;
-      
-      if (contextState === 'suspended') {
-        await this.webAudioContext.resume();
-      }
-      
+
       // 初期化に失敗していた場合は再試行
       if (!this.isInitialized) {
-        this.initializeAudio();
+        await this.initializeAudio();
       }
     } catch (error) {
-      console.error('Failed to start audio context:', error);
+      console.error('Failed to start Tone.js audio context:', error);
     }
+  }
+
+  /**
+   * 低音域テスト用：指定した範囲の音階を順番に再生
+   */
+  public playLowFrequencyTest(): void {
+    if (this.isMuted || !this.isInitialized) return;
+
+    // C2からC4まで（MIDI 36-60）の音階を順番に再生
+    const testNotes = [36, 40, 43, 48, 52, 55, 60]; // C2, E2, G2, C3, E3, G3, C4
+
+    testNotes.forEach((midiNote, index) => {
+      setTimeout(() => {
+        const noteName = this.midiToNoteName(midiNote);
+        console.log(`テスト音: ${noteName} (MIDI ${midiNote})`);
+        this.playNoteSound(midiNote, 0.8);
+      }, index * 1000); // 1秒間隔
+    });
+  }
+
+  /**
+   * 和音テスト用：様々なコードを再生
+   */
+  public playChordTest(): void {
+    if (this.isMuted || !this.isInitialized) return;
+
+    const chords = [
+      { name: 'Cメジャー（3音）', notes: [60, 64, 67] }, // C, E, G
+      { name: 'Fメジャー7（4音）', notes: [65, 69, 72, 76] }, // F, A, C, E
+      { name: 'Gメジャー9（5音）', notes: [67, 71, 74, 78, 81] }, // G, B, D, F#, A
+      { name: 'Cmaj13（6音）', notes: [60, 64, 67, 71, 74, 77] }, // C, E, G, B, D, F
+      { name: '10音クラスター', notes: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69] }, // 半音階クラスター
+    ];
+
+    chords.forEach((chord, index) => {
+      setTimeout(() => {
+        console.log(`和音テスト: ${chord.name} (${chord.notes.length}音)`);
+        this.playChord(chord.notes, 2.0);
+      }, index * 3000); // 3秒間隔
+    });
+  }
+
+  /**
+   * 音色テスト用：異なる音色で同じ音程を再生
+   */
+  public playSoundTest(): void {
+    if (this.isMuted || !this.isInitialized) return;
+
+    const testNote = 'C4';
+    const oscillatorTypes = ['sine', 'triangle', 'sawtooth', 'square', 'fatsawtooth'];
+
+    oscillatorTypes.forEach((type, index) => {
+      setTimeout(() => {
+        console.log(`音色テスト: ${type}`);
+
+        // 一時的に音色を変更
+        if (this.synth) {
+          const originalType = this.synth.oscillator.type;
+          this.synth.oscillator.type = type as any;
+          this.synth.triggerAttackRelease(testNote, 1.0);
+
+          // 元の音色に戻す
+          setTimeout(() => {
+            if (this.synth) {
+              this.synth.oscillator.type = originalType;
+            }
+          }, 1100);
+        }
+      }, index * 1500); // 1.5秒間隔
+    });
+  }
+
+  /**
+   * ポリフォニーテスト用：多数の音を同時再生
+   */
+  public playPolyphonyTest(): void {
+    if (this.isMuted || !this.isInitialized) return;
+
+    console.log('ポリフォニーテストを開始します...');
+
+    // 段階的に音数を増やしてテスト
+    const tests = [
+      { name: '3音和音', notes: [60, 64, 67] },
+      { name: '5音和音', notes: [60, 64, 67, 71, 74] },
+      { name: '8音和音', notes: [60, 62, 64, 66, 67, 69, 71, 72] },
+      { name: '12音クラスター', notes: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71] },
+    ];
+
+    tests.forEach((test, index) => {
+      setTimeout(() => {
+        console.log(`${test.name}テスト (${test.notes.length}音)`);
+        this.playChord(test.notes, 2.0);
+      }, index * 3000);
+    });
   }
 
   /**
    * リソースのクリーンアップ
    */
   public destroy(): void {
-    if (this.webAudioContext && this.webAudioContext.close) {
-      this.webAudioContext.close();
-      this.webAudioContext = null;
+    try {
+      if (this.synth) {
+        this.synth.dispose();
+        this.synth = null;
+      }
+
+      if (this.polySynth) {
+        this.polySynth.dispose();
+        this.polySynth = null;
+      }
+
+      if (this.reverb) {
+        this.reverb.dispose();
+        this.reverb = null;
+      }
+
+      this.isInitialized = false;
+      console.log('AudioFeedbackManager destroyed');
+    } catch (error) {
+      console.error('Error during AudioFeedbackManager cleanup:', error);
     }
-    
-    this.isInitialized = false;
   }
 }
