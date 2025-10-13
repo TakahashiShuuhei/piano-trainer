@@ -67,7 +67,9 @@ export class AudioFeedbackManager {
       console.log('Tone.js audio system initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Tone.js:', error);
-      console.error('Error details:', error.message);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
       this.isInitialized = false;
       throw error; // エラーを再スローしてフォールバックを無効化
     }
@@ -232,29 +234,6 @@ export class AudioFeedbackManager {
     }
   }
 
-  /**t gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-      oscillator.type = 'sine';
-
-      const volume = this.volume * 0.3;
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
-
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + duration);
-      
-      console.log(`Playing beep with Web Audio API: ${frequency}Hz for ${duration}s`);
-    } catch (error) {
-      console.error('Failed to play beep with Web Audio API:', error);
-    }
-  }
-   * 現在の音量を取得 (0-1)
-   */
   public getVolume(): number {
     return this.volume;
   }
@@ -318,8 +297,6 @@ export class AudioFeedbackManager {
       console.error('Failed to start Tone.js audio context:', error);
     }
   }
-
-
 
   /**
    * リソースのクリーンアップ
