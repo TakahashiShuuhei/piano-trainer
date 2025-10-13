@@ -2,6 +2,8 @@
 
 MIDI対応のピアノ練習用Webアプリケーション。電子ピアノと接続して、楽譜に合わせた演奏練習ができます。
 
+サンプル : https://takahashishuuhei.github.io/apps/piano-practice/?song=https://raw.githubusercontent.com/TakahashiShuuhei/piano-trainer/refs/heads/master/test-song.json
+
 ## 機能
 
 - 🎹 **MIDI入力対応**: 電子ピアノからのリアルタイム入力
