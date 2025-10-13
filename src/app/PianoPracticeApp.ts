@@ -75,6 +75,12 @@ export class PianoPracticeApp {
       this.isInitialized = true;
       console.log('Piano Practice App initialized successfully');
 
+      // 初期化完了時に開始ボタンを有効化（MIDI接続なしでも使用可能）
+      const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
+      if (startBtn) {
+        startBtn.disabled = false;
+      }
+
     } catch (error) {
       console.error('Failed to initialize app:', error);
       this.showError('アプリケーションの初期化に失敗しました。');
@@ -414,10 +420,10 @@ export class PianoPracticeApp {
       connectMidiBtn.disabled = connected; // 接続済みの場合は無効化
     }
 
-    // 開始ボタンの有効/無効を切り替え
+    // 開始ボタンは常に有効（MIDI接続なしでも楽曲再生とキーボード入力が可能）
     const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
     if (startBtn) {
-      startBtn.disabled = !connected;
+      startBtn.disabled = false; // 常に有効
     }
   }
 
