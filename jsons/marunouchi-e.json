@@ -1,0 +1,262 @@
+{
+  "title": "Untitled (小節 34-34)",
+  "bpm": 120,
+  "notes": [
+    {
+      "pitch": 25,
+      "timing": {
+        "beat": 0.0,
+        "duration": 1.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 37,
+      "timing": {
+        "beat": 0.0,
+        "duration": 1.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 64,
+      "timing": {
+        "beat": 0.3333333333333144,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 65,
+      "timing": {
+        "beat": 0.4999999999999716,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 69,
+      "timing": {
+        "beat": 0.6666666666666288,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 71,
+      "timing": {
+        "beat": 0.833333333333286,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 76,
+      "timing": {
+        "beat": 0.9999999999999432,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 74,
+      "timing": {
+        "beat": 1.1666666666666003,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 73,
+      "timing": {
+        "beat": 1.3333333333332575,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 74,
+      "timing": {
+        "beat": 1.4999999999999147,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 73,
+      "timing": {
+        "beat": 1.666666666666572,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 71,
+      "timing": {
+        "beat": 1.8333333333332291,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 69,
+      "timing": {
+        "beat": 1.9999999999998863,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 71,
+      "timing": {
+        "beat": 2.1666666666665435,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 73,
+      "timing": {
+        "beat": 2.3333333333332007,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 78,
+      "timing": {
+        "beat": 2.499999999999858,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 76,
+      "timing": {
+        "beat": 2.666666666666515,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 73,
+      "timing": {
+        "beat": 2.8333333333331723,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 72,
+      "timing": {
+        "beat": 2.9999999999998295,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 76,
+      "timing": {
+        "beat": 2.9999999999998295,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 25,
+      "timing": {
+        "beat": 3.0,
+        "duration": 0.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 37,
+      "timing": {
+        "beat": 3.0,
+        "duration": 0.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 71,
+      "timing": {
+        "beat": 3.1666666666664867,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 69,
+      "timing": {
+        "beat": 3.333333333333144,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 66,
+      "timing": {
+        "beat": 3.499999999999801,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 25,
+      "timing": {
+        "beat": 3.5,
+        "duration": 0.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 37,
+      "timing": {
+        "beat": 3.5,
+        "duration": 0.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 64,
+      "timing": {
+        "beat": 3.6666666666664582,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 62,
+      "timing": {
+        "beat": 3.8333333333331154,
+        "duration": 0.16666666666666666
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 61,
+      "timing": {
+        "beat": 3.9999999999997726,
+        "duration": 0.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 66,
+      "timing": {
+        "beat": 3.9999999999997726,
+        "duration": 0.5
+      },
+      "velocity": 80
+    },
+    {
+      "pitch": 69,
+      "timing": {
+        "beat": 3.9999999999997726,
+        "duration": 0.5
+      },
+      "velocity": 80
+    }
+  ]
+}
