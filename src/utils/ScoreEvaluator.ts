@@ -11,7 +11,7 @@ import { Note } from '../types/index.js';
 export class ScoreEvaluator {
   private hitNoteIndices = new Set<number>();      // 正解したノートのindex（現在のループ）
   private activeNoteIndices = new Set<number>();   // 現在アクティブ（演奏対象）なノートのindex（現在のループ）
-  private readonly hitWindow = 300; // ±100msec
+  private readonly hitWindow = 200; // ±200msec
 
   // ループ対応：累積スコア管理
   private totalCorrectCount = 0;  // 全ループ通しての正解数
