@@ -676,7 +676,7 @@ export class PianoPracticeApp {
       // -ボタン
       if (bpmDown) {
         bpmDown.addEventListener('click', () => {
-          const newBPM = Math.max(60, this.currentBPM - 5);
+          const newBPM = Math.max(30, this.currentBPM - 5);
           this.setBPM(newBPM);
           this.updateBPMDisplay(newBPM);
           bpmSlider.value = newBPM.toString();
