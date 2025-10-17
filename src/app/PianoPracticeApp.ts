@@ -142,6 +142,12 @@ export class PianoPracticeApp {
       console.error('MIDI connect button not found in setupEventListeners');
     }
 
+    // ファイル読み込み
+    const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.addEventListener('change', (event) => this.handleFileLoad(event));
+    }
+
     // ゲーム制御ボタン
     const startBtn = document.getElementById('startBtn');
     if (startBtn) {
@@ -221,6 +227,65 @@ export class PianoPracticeApp {
     const headerElement = document.querySelector('.header h1');
     if (headerElement) {
       headerElement.textContent = `🎹 ${title}`;
+    }
+  }
+
+  /**
+   * ファイル読み込みを処理
+   */
+  private async handleFileLoad(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      // ファイルから楽曲データを読み込み
+      const musicalNotes = await this.contentLoader.loadFromFile(file);
+
+      // 楽曲データを読み込んだJSONからタイトルとBPMを取得
+      const fileReader = new FileReader();
+      fileReader.onload = (e) => {
+        try {
+          const jsonData = JSON.parse(e.target?.result as string);
+
+          // タイトルを更新
+          if (jsonData.title) {
+            this.updateSongTitle(jsonData.title);
+          }
+
+          // BPMを更新
+          if (jsonData.bpm) {
+            this.setBPM(jsonData.bpm);
+          }
+
+          console.log('楽曲ファイルを読み込みました:', jsonData.title || '無題', `(BPM: ${jsonData.bpm || 120})`);
+        } catch (error) {
+          console.error('Failed to parse JSON for metadata:', error);
+        }
+      };
+      fileReader.readAsText(file, 'utf-8');
+
+      // 楽曲データを設定
+      this.musicalNotes = musicalNotes;
+
+      // 再生中の場合は停止
+      if (this.currentGameState.phase !== GamePhase.STOPPED) {
+        this.handleStop();
+      }
+
+      // 成功メッセージを表示
+      this.showSuccess(`楽曲ファイル "${file.name}" を読み込みました`);
+
+    } catch (error) {
+      console.error('Failed to load file:', error);
+      const errorMessage = error instanceof Error ? error.message : 'ファイルの読み込みに失敗しました';
+      this.showError(errorMessage);
+    } finally {
+      // ファイル入力をリセット（同じファイルを再度選択できるように）
+      input.value = '';
     }
   }
 
@@ -643,9 +708,22 @@ export class PianoPracticeApp {
     if (errorElement) {
       errorElement.textContent = message;
       errorElement.style.display = 'block';
+      errorElement.style.backgroundColor = '#f44336'; // 赤
       setTimeout(() => {
         errorElement.style.display = 'none';
       }, 5000);
+    }
+  }
+
+  private showSuccess(message: string): void {
+    const errorElement = document.getElementById('errorMessage');
+    if (errorElement) {
+      errorElement.textContent = message;
+      errorElement.style.display = 'block';
+      errorElement.style.backgroundColor = '#4caf50'; // 緑
+      setTimeout(() => {
+        errorElement.style.display = 'none';
+      }, 3000);
     }
   }
 
