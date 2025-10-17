@@ -313,6 +313,7 @@ export class UIRenderer {
   private drawMemos(memos: Memo[], currentTime: number): void {
     if (!this.ctx || !this.canvas) return;
 
+    const ctx = this.ctx;
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
 
@@ -338,18 +339,18 @@ export class UIRenderer {
         }
 
         // 細い横線を描画（画面全体に）
-        this.ctx.strokeStyle = currentColors.secondary;
-        this.ctx.lineWidth = 1;
-        this.ctx.setLineDash([5, 3]); // 破線スタイル
-        this.ctx.globalAlpha = 0.5;
+        ctx.strokeStyle = currentColors.secondary;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 3]); // 破線スタイル
+        ctx.globalAlpha = 0.5;
 
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, y);
-        this.ctx.lineTo(width, y);
-        this.ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
 
-        this.ctx.setLineDash([]); // リセット
-        this.ctx.globalAlpha = 1.0;
+        ctx.setLineDash([]); // リセット
+        ctx.globalAlpha = 1.0;
 
         // 配置位置を計算（align に応じて）
         let x: number;
@@ -357,16 +358,16 @@ export class UIRenderer {
         switch (memo.align) {
           case 'left':
             x = padding;
-            this.ctx.textAlign = 'left';
+            ctx.textAlign = 'left';
             break;
           case 'right':
             x = width - padding;
-            this.ctx.textAlign = 'right';
+            ctx.textAlign = 'right';
             break;
           case 'center':
           default:
             x = width / 2;
-            this.ctx.textAlign = 'center';
+            ctx.textAlign = 'center';
             break;
         }
 
@@ -374,12 +375,12 @@ export class UIRenderer {
         const colorPreset = this.memoColorPresets[memo.color] || this.memoColorPresets.default;
 
         // メモテキストを描画（線より上に）
-        this.ctx.fillStyle = colorPreset.text;
-        this.ctx.font = 'bold 20px Arial';
-        this.ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = colorPreset.text;
+        ctx.font = 'bold 20px Arial';
+        ctx.textBaseline = 'alphabetic';
 
         // 背景を描画（視認性向上）
-        const textMetrics = this.ctx.measureText(memo.text);
+        const textMetrics = ctx.measureText(memo.text);
         const textWidth = textMetrics.width;
         // actualBoundingBoxを使用して実際のテキストの高さを取得
         const textAscent = textMetrics.actualBoundingBoxAscent || 20;
@@ -410,12 +411,12 @@ export class UIRenderer {
         }
 
         // 半透明の背景を描画（線より完全に上に）
-        this.ctx.fillStyle = colorPreset.bg;
+        ctx.fillStyle = colorPreset.bg;
         this.drawRoundedRect(bgX, bgY, textWidth + bgPadding * 2, bgHeight, 8);
 
         // テキストを描画（背景の中に）
-        this.ctx.fillStyle = colorPreset.text;
-        this.ctx.fillText(memo.text, x, textY);
+        ctx.fillStyle = colorPreset.text;
+        ctx.fillText(memo.text, x, textY);
       }
     });
   }
@@ -554,6 +555,7 @@ export class UIRenderer {
   private drawWhiteKeys(keyboardY: number, keyboardHeight: number): void {
     if (!this.ctx || !this.canvas) return;
 
+    const ctx = this.ctx;
     const currentColors = this.colors[this.theme];
     let whiteKeyIndex = 0;
 
@@ -578,8 +580,8 @@ export class UIRenderer {
           keyColor = currentColors.whiteKey; // 通常（白）
         }
 
-        this.ctx!.fillStyle = keyColor;
-        this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
+        ctx.fillStyle = keyColor;
+        ctx.fillRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
 
         // 境界線（ガイド状態に応じて調整）
         let strokeColor: string;
@@ -596,9 +598,9 @@ export class UIRenderer {
           lineWidth = 1;
         }
 
-        this.ctx!.strokeStyle = strokeColor;
-        this.ctx!.lineWidth = lineWidth;
-        this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
 
 
 
@@ -613,6 +615,7 @@ export class UIRenderer {
   private drawBlackKeys(keyboardY: number, keyboardHeight: number): void {
     if (!this.ctx || !this.canvas) return;
 
+    const ctx = this.ctx;
     const currentColors = this.colors[this.theme];
     let whiteKeyIndex = 0;
 
@@ -644,8 +647,8 @@ export class UIRenderer {
           keyColor = currentColors.blackKey; // 通常（黒）
         }
 
-        this.ctx!.fillStyle = keyColor;
-        this.ctx!.fillRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
+        ctx.fillStyle = keyColor;
+        ctx.fillRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
 
         // 境界線（ガイド状態に応じて調整）
         let strokeColor: string;
@@ -662,9 +665,9 @@ export class UIRenderer {
           lineWidth = 1;
         }
 
-        this.ctx!.strokeStyle = strokeColor;
-        this.ctx!.lineWidth = lineWidth;
-        this.ctx!.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
 
 
       }
@@ -739,6 +742,7 @@ export class UIRenderer {
   private fadeOutEffect(x: number, y: number, color: string, size: number): void {
     if (!this.ctx) return;
 
+    const ctx = this.ctx;
     let alpha = 0.8;
     const fadeInterval = setInterval(() => {
       if (alpha <= 0) {
@@ -747,12 +751,12 @@ export class UIRenderer {
       }
 
       // 前のエフェクトをクリア（簡易版）
-      this.ctx!.globalAlpha = alpha;
-      this.ctx!.fillStyle = color;
-      this.ctx!.beginPath();
-      this.ctx!.arc(x, y, size * (1 + (0.8 - alpha)), 0, Math.PI * 2);
-      this.ctx!.fill();
-      this.ctx!.globalAlpha = 1.0;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, size * (1 + (0.8 - alpha)), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
 
       alpha -= 0.1;
     }, 50);
@@ -794,7 +798,7 @@ export class UIRenderer {
   /**
    * スコア表示を更新
    */
-  updateScore(score: number, accuracy: number): void {
+  updateScore(_score: number, _accuracy: number): void {
     // render メソッドで描画されるため、ここでは特別な処理は不要
 
   }
@@ -863,7 +867,7 @@ export class UIRenderer {
   /**
    * ユーティリティ: 音程に基づいてノートのX座標を計算（88鍵盤対応）
    */
-  private getPreciseNoteXPosition(pitch: number, canvasWidth: number): number {
+  private getPreciseNoteXPosition(pitch: number, _canvasWidth: number): number {
     // 88鍵盤の範囲チェック
     if (pitch < this.keyboardLayout.midiRange.min || pitch > this.keyboardLayout.midiRange.max) {
       return -1; // 表示範囲外
@@ -900,13 +904,6 @@ export class UIRenderer {
   }
 
   /**
-   * ユーティリティ: 音程に基づいてノートのX座標を計算（後方互換性）
-   */
-  private getNoteXPosition(pitch: number, canvasWidth: number): number {
-    return this.getPreciseNoteXPosition(pitch, canvasWidth);
-  }
-
-  /**
    * ユーティリティ: 黒鍵かどうかを判定
    */
   private isBlackKey(pitch: number): boolean {
@@ -924,10 +921,6 @@ export class UIRenderer {
     }
     return '#ffffff';
   }
-
-
-
-
 
   /**
    * ユーティリティ: 角丸矩形を描画
