@@ -5,9 +5,7 @@ import {
   MetronomeService,
   GameState,
   GamePhase,
-  PracticeContent,
   Note,
-  ScoreResult,
   MusicalNote,
   SongMemo,
   Memo,
@@ -20,6 +18,8 @@ import { MusicalTimeManager } from '../utils/MusicalTimeManager';
 import { AudioFeedbackManager } from '../utils/AudioFeedbackManager';
 import { ScoreEvaluator } from '../utils/ScoreEvaluator';
 import { ContentLoader } from '../utils/ContentLoader';
+import { TimeFormatter } from '../utils/TimeFormatter';
+import { KeyboardNoteMapper } from '../utils/KeyboardNoteMapper';
 
 export class PianoPracticeApp {
   private scoreEvaluator!: ScoreEvaluator;
@@ -647,23 +647,7 @@ export class PianoPracticeApp {
     }
 
     // キーボードをピアノの鍵盤として使用（フォールバック機能）
-    const keyToNote: { [key: string]: number } = {
-      'a': 60, // C4
-      'w': 61, // C#4
-      's': 62, // D4
-      'e': 63, // D#4
-      'd': 64, // E4
-      'f': 65, // F4
-      't': 66, // F#4
-      'g': 67, // G4
-      'y': 68, // G#4
-      'h': 69, // A4
-      'u': 70, // A#4
-      'j': 71, // B4
-      'k': 72, // C5
-    };
-
-    const note = keyToNote[event.key.toLowerCase()];
+    const note = KeyboardNoteMapper.getMidiNote(event.key);
     if (note !== undefined && !event.repeat) {
 
       this.handleNoteOn(note, 100, 0); // velocity 100, toneTime 0 for keyboard input
@@ -727,6 +711,11 @@ export class PianoPracticeApp {
   private updateCurrentNotes(): void {
     const timeBasedNotes = this.beatTimeConverter.convertNotes(this.musicalNotes);
 
+    console.log('Sample converted notes:', timeBasedNotes.slice(0, 5).map(n => ({
+      pitch: n.pitch,
+      startTime: n.startTime,
+      duration: n.duration
+    })));
 
     // 相対時間として設定（ゲーム開始時刻は加算しない）
     this.currentNotes = timeBasedNotes.map(note => ({
@@ -1237,10 +1226,10 @@ export class PianoPracticeApp {
     const currentTimeDisplay = document.getElementById('currentTimeDisplay');
     const totalTimeDisplay = document.getElementById('totalTimeDisplay');
     if (currentTimeDisplay) {
-      currentTimeDisplay.textContent = this.formatTime(Math.max(0, currentTime));
+      currentTimeDisplay.textContent = TimeFormatter.formatTime(Math.max(0, currentTime));
     }
     if (totalTimeDisplay) {
-      totalTimeDisplay.textContent = this.formatTime(totalDuration);
+      totalTimeDisplay.textContent = TimeFormatter.formatTime(totalDuration);
     }
 
     // 拍数表示を更新
@@ -1251,15 +1240,6 @@ export class PianoPracticeApp {
     }
   }
 
-  /**
-   * 時間をフォーマット（ミリ秒 → "M:SS"）
-   */
-  private formatTime(milliseconds: number): string {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
 
   /**
    * 部分リピートコントロールを設定

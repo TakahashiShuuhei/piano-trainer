@@ -149,11 +149,11 @@ describe('NotePositionCalculator', () => {
     });
 
     it('duration比率が正しく反映される', () => {
-      // duration 1000ms = ratio 2.0 -> height = 30 + (2-1)*40 = 70
-      expect(calculator.calculateNoteHeight(1000)).toBe(70);
-      // duration 1500ms = ratio 3.0 -> height = 30 + (3-1)*40 = 110
-      expect(calculator.calculateNoteHeight(1500)).toBe(110);
-      // duration 2000ms = ratio 4.0 -> height = 30 + (4-1)*40 = 150
+      // duration 1000ms = ratio 2.0 -> height = 30 + (2-1)*100 = 130
+      expect(calculator.calculateNoteHeight(1000)).toBe(130);
+      // duration 1500ms = ratio 3.0 -> height = 30 + (3-1)*100 = 230
+      expect(calculator.calculateNoteHeight(1500)).toBe(150);
+      // duration 2000ms = ratio 4.0 -> height = 30 + (4-1)*100 = 330
       expect(calculator.calculateNoteHeight(2000)).toBe(150);
     });
   });
@@ -278,7 +278,7 @@ describe('NotePositionCalculator', () => {
       expect(h1).toBe(30);
       expect(h2).toBe(30);
       // 長いほど大きい
-      expect(h3).toBe(70);
+      expect(h3).toBe(130);
       expect(h4).toBe(150); // 最大値
 
       // 順序確認

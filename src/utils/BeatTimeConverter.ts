@@ -56,17 +56,21 @@ export class BeatTimeConverter implements IBeatTimeConverter {
    * @returns 時間ベースのノート
    */
   convertNote(musicalNote: MusicalNote): Note {
+    // durationのデフォルト値は1拍
+    console.log(musicalNote);
+    const duration = musicalNote.timing.duration ?? 1;
+
     const result: Note = {
       pitch: musicalNote.pitch,
       startTime: this.beatsToMs(musicalNote.timing.beat),
-      duration: this.beatsToMs(musicalNote.timing.duration),
+      duration: this.beatsToMs(duration),
       velocity: musicalNote.velocity
     };
-    
 
-    
 
-    
+
+
+
     return result;
   }
 

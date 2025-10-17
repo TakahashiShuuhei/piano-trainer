@@ -253,7 +253,6 @@ export class UIRenderer {
   private drawNotes(notes: Note[], currentTime: number): void {
     if (!this.ctx || !this.canvas) return;
 
-    const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
 
     // 鍵盤エリアの高さ（画面下部20%）
@@ -414,7 +413,6 @@ export class UIRenderer {
    */
   private drawSingleNote(note: Note, currentTime: number, noteAreaHeight: number): void {
     if (!this.ctx || !this.canvas) return;
-
     const width = this.canvas.width / window.devicePixelRatio;
 
     // ノートの高さを計算

@@ -85,7 +85,7 @@ export class NotePositionCalculator {
       return this.MIN_HEIGHT;
     }
 
-    const height = this.MIN_HEIGHT + ((durationRatio - 1) * 40);
+    const height = this.MIN_HEIGHT + ((durationRatio - 1) * 100);
     return Math.min(this.MAX_HEIGHT, height);
   }
 
