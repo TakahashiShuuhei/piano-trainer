@@ -178,6 +178,12 @@ export class PianoPracticeApp {
 
     // ループ練習コントロール
     this.setupLoopControls();
+
+    // シークバーコントロール
+    this.setupSeekBarControls();
+
+    // 部分リピートコントロール
+    this.setupPartialRepeatControls();
   }
 
   private async loadInitialContent(): Promise<void> {
@@ -599,6 +605,9 @@ export class PianoPracticeApp {
       // UIRendererで画面を描画
       this.uiRenderer.render(this.currentGameState, this.currentNotes);
 
+      // シークバー表示を更新
+      this.updateSeekBarDisplay();
+
       // 次のフレームをリクエスト
       requestAnimationFrame(render);
     };
@@ -619,7 +628,15 @@ export class PianoPracticeApp {
   }
 
   private handleKeyboardInput(event: KeyboardEvent): void {
-
+    // 左右キーでシーク（再生中または一時停止中のみ）
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if (this.currentGameState.phase === GamePhase.PLAYING || this.currentGameState.phase === GamePhase.PAUSED) {
+        event.preventDefault();
+        const direction = event.key === 'ArrowLeft' ? -1 : 1;
+        this.seekByBeats(direction);
+        return;
+      }
+    }
 
     // キーボードをピアノの鍵盤として使用（フォールバック機能）
     const keyToNote: { [key: string]: number } = {
@@ -861,6 +878,11 @@ export class PianoPracticeApp {
   // シンプルなループ機能
   private isLoopEnabled = false;
 
+  // 部分リピート機能
+  private isPartialRepeatEnabled = false;
+  private repeatStartBeat: number | null = null;
+  private repeatEndBeat: number | null = null;
+
   /**
    * 演奏ガイドを更新
    */
@@ -1024,6 +1046,31 @@ export class PianoPracticeApp {
     if (this.currentNotes.length === 0) return;
 
     const currentTime = this.currentGameState.currentTime;
+    const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+
+    // 部分リピートが有効な場合
+    if (this.isPartialRepeatEnabled && this.repeatStartBeat !== null && this.repeatEndBeat !== null) {
+      // 終了位置を超えたら開始位置にシーク
+      if (currentPosition >= this.repeatEndBeat) {
+        // 開始位置にシーク
+        this.musicalTimeManager.seekToMusicalPosition(this.repeatStartBeat);
+
+        // シーク後の時刻を取得
+        const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+
+        // 新しいプレイセッションを開始（シーク後の時刻を渡す）
+        this.scoreEvaluator.startNewPlaySession(seekedTime);
+
+        // 再生済みノートをクリア
+        this.playedNotes.clear();
+
+        // 演奏ガイドをクリア
+        this.uiRenderer.clearTargetKeys();
+      }
+      return;
+    }
+
+    // 全曲ループまたは通常の終了チェック
     const lastNote = this.currentNotes[this.currentNotes.length - 1];
     if (!lastNote) return;
 
@@ -1073,6 +1120,207 @@ export class PianoPracticeApp {
       loopEnabled.addEventListener('change', () => {
         this.setLoopEnabled(loopEnabled.checked);
       });
+    }
+  }
+
+  /**
+   * シークバーコントロールを設定
+   */
+  private setupSeekBarControls(): void {
+    const seekBar = document.getElementById('seekBar') as HTMLInputElement;
+
+    if (seekBar) {
+      seekBar.addEventListener('input', (event) => {
+        const progress = parseInt((event.target as HTMLInputElement).value) / 1000;
+        this.handleSeekBarChange(progress);
+      });
+    }
+  }
+
+  /**
+   * シークバー変更時の処理
+   */
+  private handleSeekBarChange(progress: number): void {
+    if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+      return;
+    }
+
+    const lastNote = this.currentNotes[this.currentNotes.length - 1];
+    if (!lastNote) return;
+
+    const totalDuration = lastNote.startTime + lastNote.duration;
+    const targetTime = progress * totalDuration;
+
+    // シーク実行
+    this.musicalTimeManager.seekToRealTime(targetTime);
+
+    // シーク後の時刻を取得
+    const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+
+    // 新しいプレイセッションを開始（シーク後の時刻を渡す）
+    this.scoreEvaluator.startNewPlaySession(seekedTime);
+
+    // 再生済みノートをクリア
+    this.playedNotes.clear();
+  }
+
+  /**
+   * 拍数単位でシーク
+   */
+  private seekByBeats(beatOffset: number): void {
+    if (!this.musicalTimeManager.isStarted()) {
+      return;
+    }
+
+    const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+    const targetPosition = Math.max(0, currentPosition + beatOffset);
+
+    // シーク実行
+    this.musicalTimeManager.seekToMusicalPosition(targetPosition);
+
+    // シーク後の時刻を取得
+    const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+
+    // 新しいプレイセッションを開始（シーク後の時刻を渡す）
+    this.scoreEvaluator.startNewPlaySession(seekedTime);
+
+    // 再生済みノートをクリア
+    this.playedNotes.clear();
+  }
+
+  /**
+   * シークバーの表示を更新
+   */
+  private updateSeekBarDisplay(): void {
+    if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+      return;
+    }
+
+    const currentTime = this.currentGameState.currentTime;
+    const lastNote = this.currentNotes[this.currentNotes.length - 1];
+    if (!lastNote) return;
+
+    const totalDuration = lastNote.startTime + lastNote.duration;
+    const progress = Math.max(0, Math.min(1, currentTime / totalDuration));
+
+    // シークバーの値を更新
+    const seekBar = document.getElementById('seekBar') as HTMLInputElement;
+    if (seekBar) {
+      seekBar.value = Math.round(progress * 1000).toString();
+    }
+
+    // 時間表示を更新
+    const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+    const totalTimeDisplay = document.getElementById('totalTimeDisplay');
+    if (currentTimeDisplay) {
+      currentTimeDisplay.textContent = this.formatTime(Math.max(0, currentTime));
+    }
+    if (totalTimeDisplay) {
+      totalTimeDisplay.textContent = this.formatTime(totalDuration);
+    }
+
+    // 拍数表示を更新
+    const musicalPositionDisplay = document.getElementById('musicalPositionDisplay');
+    if (musicalPositionDisplay) {
+      const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+      musicalPositionDisplay.textContent = currentPosition.toFixed(1);
+    }
+  }
+
+  /**
+   * 時間をフォーマット（ミリ秒 → "M:SS"）
+   */
+  private formatTime(milliseconds: number): string {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * 部分リピートコントロールを設定
+   */
+  private setupPartialRepeatControls(): void {
+    const partialRepeatEnabled = document.getElementById('partialRepeatEnabled') as HTMLInputElement;
+    const setPointA = document.getElementById('setPointA');
+    const setPointB = document.getElementById('setPointB');
+    const clearRepeatPoints = document.getElementById('clearRepeatPoints');
+
+    if (partialRepeatEnabled) {
+      partialRepeatEnabled.addEventListener('change', () => {
+        this.isPartialRepeatEnabled = partialRepeatEnabled.checked;
+      });
+    }
+
+    if (setPointA) {
+      setPointA.addEventListener('click', () => {
+        this.setRepeatPoint('start');
+      });
+    }
+
+    if (setPointB) {
+      setPointB.addEventListener('click', () => {
+        this.setRepeatPoint('end');
+      });
+    }
+
+    if (clearRepeatPoints) {
+      clearRepeatPoints.addEventListener('click', () => {
+        this.clearRepeatPoints();
+      });
+    }
+  }
+
+  /**
+   * リピート位置を設定
+   */
+  private setRepeatPoint(type: 'start' | 'end'): void {
+    if (!this.musicalTimeManager.isStarted()) {
+      this.showError('再生中または一時停止中のみ設定できます');
+      return;
+    }
+
+    const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+
+    if (type === 'start') {
+      this.repeatStartBeat = currentPosition;
+      const display = document.getElementById('pointADisplay');
+      if (display) {
+        display.textContent = currentPosition.toFixed(1);
+        // アニメーションを適用
+        display.classList.remove('repeat-point-highlight');
+        void display.offsetWidth; // リフロー強制でアニメーションをリスタート
+        display.classList.add('repeat-point-highlight');
+      }
+    } else {
+      this.repeatEndBeat = currentPosition;
+      const display = document.getElementById('pointBDisplay');
+      if (display) {
+        display.textContent = currentPosition.toFixed(1);
+        // アニメーションを適用
+        display.classList.remove('repeat-point-highlight');
+        void display.offsetWidth; // リフロー強制でアニメーションをリスタート
+        display.classList.add('repeat-point-highlight');
+      }
+    }
+  }
+
+  /**
+   * リピート位置をクリア
+   */
+  private clearRepeatPoints(): void {
+    this.repeatStartBeat = null;
+    this.repeatEndBeat = null;
+
+    const pointADisplay = document.getElementById('pointADisplay');
+    const pointBDisplay = document.getElementById('pointBDisplay');
+    if (pointADisplay) {
+      pointADisplay.textContent = '未設定';
+      pointADisplay.classList.remove('repeat-point-highlight');
+    }
+    if (pointBDisplay) {
+      pointBDisplay.textContent = '未設定';
+      pointBDisplay.classList.remove('repeat-point-highlight');
     }
   }
 

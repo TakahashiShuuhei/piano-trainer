@@ -15,13 +15,10 @@ import { Note } from '../types/index.js';
 export class ScoreEvaluator {
   // プレイセッション管理
   private currentPlaySessionId = 0;
-  private hitNotes = new Map<string, number>();    // noteId -> sessionId
-  private activeNotes = new Map<string, number>(); // noteId -> sessionId
+  private currentSessionStartTime: number | undefined = undefined; // 現在のセッションの開始時刻 (msec)
+  private hitNotes = new Map<string, Set<number>>();    // noteId -> Set<sessionId>
+  private activeNotes = new Map<string, Set<number>>(); // noteId -> Set<sessionId>
   private readonly hitWindow = 200; // ±200msec
-
-  // ループ対応：累積スコア管理
-  private totalCorrectCount = 0;  // 全ループ通しての正解数
-  private totalNoteCount = 0;     // 全ループ通しての総ノート数
 
   /**
    * ノートの一意なIDを生成
@@ -46,7 +43,8 @@ export class ScoreEvaluator {
       .map((note, index) => ({ note, index }))
       .filter(({ note, index }) => {
         const noteId = this.getNoteId(note);
-        const isAlreadyHit = this.hitNotes.get(noteId) === this.currentPlaySessionId;
+        const sessions = this.hitNotes.get(noteId);
+        const isAlreadyHit = sessions?.has(this.currentPlaySessionId) ?? false;
         return !isAlreadyHit &&
           note.pitch === inputNote &&
           Math.abs(note.startTime - currentTime) <= this.hitWindow;
@@ -56,7 +54,12 @@ export class ScoreEvaluator {
     if (candidates.length > 0) {
       const { note, index } = candidates[0]!;
       const noteId = this.getNoteId(note);
-      this.hitNotes.set(noteId, this.currentPlaySessionId);
+
+      // セッションIDをSetに追加
+      if (!this.hitNotes.has(noteId)) {
+        this.hitNotes.set(noteId, new Set());
+      }
+      this.hitNotes.get(noteId)!.add(this.currentPlaySessionId);
 
       return { isHit: true, hitNoteIndex: index };
     }
@@ -73,17 +76,27 @@ export class ScoreEvaluator {
   public updateActiveNotes(currentTime: number, notes: Note[]): void {
     notes.forEach((note) => {
       const noteId = this.getNoteId(note);
-      const isAlreadyActive = this.activeNotes.get(noteId) === this.currentPlaySessionId;
+      const sessions = this.activeNotes.get(noteId);
+      const isAlreadyActive = sessions?.has(this.currentPlaySessionId) ?? false;
 
       // ノートの開始タイミングに到達したらアクティブに追加
+      // ただし、セッション開始時刻より前のノートは除外（シーク対応）
       if (currentTime >= note.startTime && !isAlreadyActive) {
-        this.activeNotes.set(noteId, this.currentPlaySessionId);
+        // セッション開始時刻が記録されている場合、それより前のノートはスキップ
+        if (this.currentSessionStartTime !== undefined && note.startTime < this.currentSessionStartTime) {
+          return;
+        }
+
+        if (!this.activeNotes.has(noteId)) {
+          this.activeNotes.set(noteId, new Set());
+        }
+        this.activeNotes.get(noteId)!.add(this.currentPlaySessionId);
       }
     });
   }
 
   /**
-   * 現在のスコアを取得（累積スコア + 現在のセッション）
+   * 現在のスコアを取得（全セッション通しての累積）
    * @returns スコア情報
    */
   public getScore(): {
@@ -93,14 +106,16 @@ export class ScoreEvaluator {
     hitIndices: number[];
     activeIndices: number[];
   } {
-    // 現在のセッションでヒット/アクティブなノート数を計算
-    const currentCorrect = Array.from(this.hitNotes.values())
-      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
-    const currentTotal = Array.from(this.activeNotes.values())
-      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
+    // 各noteIdのSet内のセッション数を合計
+    let totalCorrect = 0;
+    for (const sessions of this.hitNotes.values()) {
+      totalCorrect += sessions.size;
+    }
 
-    const totalCorrect = this.totalCorrectCount + currentCorrect;
-    const totalNotes = this.totalNoteCount + currentTotal;
+    let totalNotes = 0;
+    for (const sessions of this.activeNotes.values()) {
+      totalNotes += sessions.size;
+    }
 
     // インデックスの代わりにnoteIdを返す（後方互換性のため空配列）
     return {
@@ -121,8 +136,10 @@ export class ScoreEvaluator {
 
     notes.forEach(note => {
       const noteId = this.getNoteId(note);
-      const isActive = this.activeNotes.get(noteId) === this.currentPlaySessionId;
-      const isHit = this.hitNotes.get(noteId) === this.currentPlaySessionId;
+      const activeSessions = this.activeNotes.get(noteId);
+      const hitSessions = this.hitNotes.get(noteId);
+      const isActive = activeSessions?.has(this.currentPlaySessionId) ?? false;
+      const isHit = hitSessions?.has(this.currentPlaySessionId) ?? false;
 
       if (isActive && !isHit) {
         // ノートの終了時刻 + 許容範囲を過ぎていたら見逃し
@@ -147,7 +164,8 @@ export class ScoreEvaluator {
     return notes
       .filter(note => {
         const noteId = this.getNoteId(note);
-        const isAlreadyHit = this.hitNotes.get(noteId) === this.currentPlaySessionId;
+        const sessions = this.hitNotes.get(noteId);
+        const isAlreadyHit = sessions?.has(this.currentPlaySessionId) ?? false;
         return !isAlreadyHit &&
           note.pitch === inputNote &&
           Math.abs(note.startTime - currentTime) <= this.hitWindow;
@@ -160,28 +178,14 @@ export class ScoreEvaluator {
       .sort((a, b) => a.note.startTime - b.note.startTime);
   }
 
-  /**
-   * 現在のループのスコアを累積に追加（ループ終了時に呼び出し）
-   */
-  public finalizeCurrentLoop(): void {
-    // 現在のセッションのスコアを累積に追加
-    const currentCorrect = Array.from(this.hitNotes.values())
-      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
-    const currentTotal = Array.from(this.activeNotes.values())
-      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
-
-    this.totalCorrectCount += currentCorrect;
-    this.totalNoteCount += currentTotal;
-
-    // 新しいプレイセッションを開始
-    this.startNewPlaySession();
-  }
 
   /**
    * 新しいプレイセッションを開始（シークや部分リピート時に使用）
+   * @param startTime セッションの開始時刻（ミリ秒）。省略時は制限なし
    */
-  public startNewPlaySession(): void {
+  public startNewPlaySession(startTime?: number): void {
     this.currentPlaySessionId++;
+    this.currentSessionStartTime = startTime; // undefined の場合は制限なし
     // 古いセッションのデータは保持（履歴として残す）
   }
 
@@ -192,10 +196,7 @@ export class ScoreEvaluator {
     this.hitNotes.clear();
     this.activeNotes.clear();
     this.currentPlaySessionId = 0;
-
-    // 累積スコアもリセット
-    this.totalCorrectCount = 0;
-    this.totalNoteCount = 0;
+    this.currentSessionStartTime = undefined;
   }
 
   /**
@@ -203,17 +204,24 @@ export class ScoreEvaluator {
    */
   public debugInfo(): void {
     const score = this.getScore();
-    const currentCorrect = Array.from(this.hitNotes.values())
-      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
-    const currentTotal = Array.from(this.activeNotes.values())
-      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
+    let currentCorrect = 0;
+    for (const sessions of this.hitNotes.values()) {
+      if (sessions.has(this.currentPlaySessionId)) {
+        currentCorrect++;
+      }
+    }
+    let currentTotal = 0;
+    for (const sessions of this.activeNotes.values()) {
+      if (sessions.has(this.currentPlaySessionId)) {
+        currentTotal++;
+      }
+    }
 
     console.log('=== ScoreEvaluator Debug Info ===');
     console.log(`Current session ID: ${this.currentPlaySessionId}`);
     console.log(`Current session - Hit notes: ${currentCorrect}`);
     console.log(`Current session - Active notes: ${currentTotal}`);
     console.log(`Total accumulated score: ${score.correct}/${score.total} (${(score.accuracy * 100).toFixed(1)}%)`);
-    console.log(`Accumulated from previous sessions: ${this.totalCorrectCount}/${this.totalNoteCount}`);
-    console.log(`Total tracked notes: ${this.hitNotes.size} hit, ${this.activeNotes.size} active`);
+    console.log(`Total tracked notes: ${this.hitNotes.size} unique notes hit, ${this.activeNotes.size} unique notes active`);
   }
 }

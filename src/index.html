@@ -200,10 +200,29 @@
             padding: 5px 10px;
             outline: none;
         }
-        
+
         select:focus {
             border-color: #6366f1;
             box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        /* リピート位置のハイライトアニメーション */
+        @keyframes highlightFlash {
+            0% {
+                background-color: rgba(99, 102, 241, 0.8);
+                transform: scale(1.1);
+            }
+            100% {
+                background-color: transparent;
+                transform: scale(1);
+            }
+        }
+
+        .repeat-point-highlight {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            animation: highlightFlash 0.6s ease-out;
         }
     </style>
 </head>
@@ -242,10 +261,48 @@
         </div>
         
         <div style="text-align: center; margin: 15px 0; color: #9ca3af; font-size: 14px;">
-            💡 MIDI接続なしでも楽曲再生とキーボード入力（a,s,d,f,g,h,j,k）で練習できます
+            💡 MIDI接続なしでも楽曲再生とキーボード入力（a,s,d,f,g,h,j,k）で練習できます<br>
+            ⌨️ 左右キーで1拍ずつシーク
         </div>
-        
+
         <div class="controls-section" style="text-align: center; margin: 20px 0;">
+            <!-- シークバー -->
+            <div class="seek-controls" style="margin-bottom: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <span id="currentTimeDisplay" style="color: white; font-weight: bold; min-width: 50px;">0:00</span>
+                    <input type="range" id="seekBar" min="0" max="1000" value="0" style="flex: 1;">
+                    <span id="totalTimeDisplay" style="color: white; font-weight: bold; min-width: 50px;">0:00</span>
+                </div>
+                <div style="color: #9ca3af; font-size: 12px;">
+                    楽曲の位置: <span id="musicalPositionDisplay">0.0</span> 拍
+                </div>
+            </div>
+
+            <!-- 部分リピート設定 -->
+            <div class="partial-repeat-controls" style="margin-bottom: 20px; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; max-width: 800px; margin-left: auto; margin-right: auto;">
+                <div style="margin-bottom: 10px;">
+                    <label style="color: white; font-weight: bold;">
+                        <input type="checkbox" id="partialRepeatEnabled" style="margin-right: 5px;">
+                        部分リピート
+                    </label>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <button class="btn accent" id="setPointA" style="padding: 8px 16px;">
+                        開始位置を設定
+                    </button>
+                    <button class="btn accent" id="setPointB" style="padding: 8px 16px;">
+                        終了位置を設定
+                    </button>
+                    <button class="btn secondary" id="clearRepeatPoints" style="padding: 8px 16px;">
+                        クリア
+                    </button>
+                </div>
+                <div style="color: white; font-size: 14px;">
+                    <span style="color: #06b6d4;">開始:</span> <span id="pointADisplay">未設定</span> 拍
+                    <span style="margin-left: 20px; color: #10b981;">終了:</span> <span id="pointBDisplay">未設定</span> 拍
+                </div>
+            </div>
+
             <!-- BPMと音量調整を横並び -->
             <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 15px; flex-wrap: wrap;">
                 <!-- BPM調整 -->
@@ -256,7 +313,7 @@
                     <button class="btn accent" id="bpmUp" style="padding: 5px 10px;">+</button>
                     <span id="bpmDisplay" style="color: white; font-weight: bold;">120</span>
                 </div>
-                
+
                 <!-- 音量調整 -->
                 <div class="volume-controls" style="display: flex; align-items: center; gap: 10px;">
                     <label for="volumeSlider" style="color: white;">音量:</label>
@@ -265,12 +322,12 @@
                     <span id="volumeDisplay" style="color: white; font-weight: bold;">60%</span>
                 </div>
             </div>
-            
+
             <!-- ループ練習設定 -->
             <div class="loop-controls" style="margin-bottom: 15px;">
                 <label style="color: white; margin-right: 10px;">
                     <input type="checkbox" id="loopEnabled" style="margin-right: 5px;">
-                    ループ練習
+                    全曲ループ練習
                 </label>
 
             </div>
