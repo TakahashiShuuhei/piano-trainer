@@ -415,20 +415,16 @@ export class UIRenderer {
     if (!this.ctx || !this.canvas) return;
     const width = this.canvas.width / window.devicePixelRatio;
 
-    // ノートの高さを計算
-    const noteHeight = this.notePositionCalculator.calculateNoteHeight(note.duration);
-
-    // ノートのY座標を計算
-    const y = this.notePositionCalculator.calculateNoteY(
+    // ノートの位置と高さを計算（開始位置と終了位置から動的に計算）
+    const { y, height: noteHeight } = this.notePositionCalculator.calculateNoteHeightFromPositions(
       currentTime,
-      note.startTime,
-      noteAreaHeight,
-      noteHeight
+      note,
+      noteAreaHeight
     );
 
     // ノートが画面外に出た場合は描画しない
-    const height = this.canvas.height / window.devicePixelRatio;
-    if (this.notePositionCalculator.isNoteOffScreen(y, height)) {
+    const canvasHeight = this.canvas.height / window.devicePixelRatio;
+    if (this.notePositionCalculator.isNoteOffScreen(y, canvasHeight)) {
       return;
     }
 

@@ -13,7 +13,7 @@ export class NotePositionCalculator {
   // ノート高さ計算の定数
   private readonly BASE_DURATION = 500; // 基準duration（四分音符）
   private readonly MIN_HEIGHT = 30;     // 最小高さ
-  private readonly MAX_HEIGHT = 150;    // 最大高さ
+  private readonly MAX_HEIGHT = 300;    // 最大高さ（音符の長さを視覚的に表現するため増加）
   private readonly MAX_DURATION_RATIO = 4; // 最大4倍まで
 
   /**
@@ -71,6 +71,7 @@ export class NotePositionCalculator {
    * ノートの高さを計算（durationに応じて変化）
    * @param noteDuration ノートのduration（ミリ秒）
    * @returns ノートの高さ（ピクセル）
+   * @deprecated 代わりにcalculateNoteHeightFromPositionsを使用してください
    */
   calculateNoteHeight(noteDuration: number): number {
     // durationが0以下の場合は最小高さ
@@ -87,6 +88,42 @@ export class NotePositionCalculator {
 
     const height = this.MIN_HEIGHT + ((durationRatio - 1) * 100);
     return Math.min(this.MAX_HEIGHT, height);
+  }
+
+  /**
+   * ノートの開始位置と終了位置のY座標から高さを計算
+   * @param currentTime 現在時刻
+   * @param note ノート情報
+   * @param noteAreaHeight ノート表示エリアの高さ
+   * @returns { y: number, height: number } ノートの上端Y座標と高さ
+   */
+  calculateNoteHeightFromPositions(
+    currentTime: number,
+    note: Note,
+    noteAreaHeight: number
+  ): { y: number; height: number } {
+    const noteStartTime = note.startTime;
+    const noteEndTime = note.startTime + note.duration;
+
+    // 開始時刻と終了時刻のそれぞれのY座標を計算
+    const showTimeStart = this.getShowTime(noteStartTime);
+    const showTimeEnd = this.getShowTime(noteEndTime);
+
+    // 開始位置のprogress（ノートの下端）
+    const progressStart = Math.max(0, (currentTime - showTimeStart) / this.SHOW_AHEAD_TIME);
+    const yBottom = progressStart * noteAreaHeight;
+
+    // 終了位置のprogress（ノートの上端）
+    const progressEnd = Math.max(0, (currentTime - showTimeEnd) / this.SHOW_AHEAD_TIME);
+    const yTop = progressEnd * noteAreaHeight;
+
+    // 高さは下端 - 上端（上から下に流れるため）
+    const height = Math.max(this.MIN_HEIGHT, yBottom - yTop);
+
+    return {
+      y: yTop,
+      height: height
+    };
   }
 
   /**

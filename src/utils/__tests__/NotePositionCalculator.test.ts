@@ -121,7 +121,7 @@ describe('NotePositionCalculator', () => {
     it('基準duration(500ms)の場合、最小高さ以上になる', () => {
       const height = calculator.calculateNoteHeight(500);
       expect(height).toBeGreaterThanOrEqual(30);
-      expect(height).toBeLessThanOrEqual(150);
+      expect(height).toBeLessThanOrEqual(300);
     });
 
     it('短いdurationの場合、最小高さ(30px)になる', () => {
@@ -138,9 +138,9 @@ describe('NotePositionCalculator', () => {
       expect(height2000).toBeGreaterThan(height1000);
     });
 
-    it('極端に長いdurationでも最大高さ(150px)を超えない', () => {
-      expect(calculator.calculateNoteHeight(5000)).toBe(150);
-      expect(calculator.calculateNoteHeight(10000)).toBe(150);
+    it('極端に長いdurationでも最大高さ(300px)を超えない', () => {
+      expect(calculator.calculateNoteHeight(5000)).toBe(300);
+      expect(calculator.calculateNoteHeight(10000)).toBe(300);
     });
 
     it('0以下のdurationでも最小高さを返す', () => {
@@ -152,9 +152,9 @@ describe('NotePositionCalculator', () => {
       // duration 1000ms = ratio 2.0 -> height = 30 + (2-1)*100 = 130
       expect(calculator.calculateNoteHeight(1000)).toBe(130);
       // duration 1500ms = ratio 3.0 -> height = 30 + (3-1)*100 = 230
-      expect(calculator.calculateNoteHeight(1500)).toBe(150);
-      // duration 2000ms = ratio 4.0 -> height = 30 + (4-1)*100 = 330
-      expect(calculator.calculateNoteHeight(2000)).toBe(150);
+      expect(calculator.calculateNoteHeight(1500)).toBe(230);
+      // duration 2000ms = ratio 4.0 -> height = 30 + (4-1)*100 = 330, clamped to 300
+      expect(calculator.calculateNoteHeight(2000)).toBe(300);
     });
   });
 
@@ -228,7 +228,92 @@ describe('NotePositionCalculator', () => {
       expect(constants.hideAfterTime).toBe(1000);
       expect(constants.baseDuration).toBe(500);
       expect(constants.minHeight).toBe(30);
-      expect(constants.maxHeight).toBe(150);
+      expect(constants.maxHeight).toBe(300);
+    });
+  });
+
+  describe('calculateNoteHeightFromPositions', () => {
+    it('ノートの開始位置と終了位置から高さを正しく計算する', () => {
+      const note: Note = {
+        pitch: 60,
+        startTime: 2000,
+        duration: 1000, // 1秒のノート
+        velocity: 80
+      };
+      const noteAreaHeight = 400;
+      const currentTime = 1000; // 開始1秒前
+
+      const result = calculator.calculateNoteHeightFromPositions(currentTime, note, noteAreaHeight);
+
+      // 開始位置のprogress = (1000 - (2000 - 2000)) / 2000 = 0.5
+      // 終了位置のprogress = (1000 - (3000 - 2000)) / 2000 = 0
+      // yBottom = 0.5 * 400 = 200
+      // yTop = 0 * 400 = 0
+      // height = 200 - 0 = 200
+      expect(result.y).toBe(0);
+      expect(result.height).toBe(200);
+    });
+
+    it('現在時刻がノート開始時刻の場合', () => {
+      const note: Note = {
+        pitch: 60,
+        startTime: 2000,
+        duration: 1000,
+        velocity: 80
+      };
+      const noteAreaHeight = 400;
+      const currentTime = 2000; // 開始時刻
+
+      const result = calculator.calculateNoteHeightFromPositions(currentTime, note, noteAreaHeight);
+
+      // 開始位置のprogress = (2000 - 0) / 2000 = 1.0
+      // 終了位置のprogress = (2000 - 1000) / 2000 = 0.5
+      // yBottom = 1.0 * 400 = 400
+      // yTop = 0.5 * 400 = 200
+      // height = 400 - 200 = 200
+      expect(result.y).toBe(200);
+      expect(result.height).toBe(200);
+    });
+
+    it('最小高さを下回らない', () => {
+      const note: Note = {
+        pitch: 60,
+        startTime: 2000,
+        duration: 100, // 短いduration
+        velocity: 80
+      };
+      const noteAreaHeight = 400;
+      const currentTime = 0;
+
+      const result = calculator.calculateNoteHeightFromPositions(currentTime, note, noteAreaHeight);
+
+      // 計算上の高さが小さくても最小高さ以上になる
+      expect(result.height).toBeGreaterThanOrEqual(30);
+    });
+
+    it('異なるdurationで高さが変わる', () => {
+      const noteAreaHeight = 400;
+      const currentTime = 1000; // 開始1秒前
+
+      const shortNote: Note = {
+        pitch: 60,
+        startTime: 2000,
+        duration: 500,
+        velocity: 80
+      };
+
+      const longNote: Note = {
+        pitch: 60,
+        startTime: 2000,
+        duration: 2000,
+        velocity: 80
+      };
+
+      const shortResult = calculator.calculateNoteHeightFromPositions(currentTime, shortNote, noteAreaHeight);
+      const longResult = calculator.calculateNoteHeightFromPositions(currentTime, longNote, noteAreaHeight);
+
+      // 長いノートの方が高さが大きい
+      expect(longResult.height).toBeGreaterThan(shortResult.height);
     });
   });
 
@@ -266,8 +351,8 @@ describe('NotePositionCalculator', () => {
     it('複数のdurationのノート高さを比較する', () => {
       const shortNote = 250;   // 四分音符の半分（500ms未満なので最小値）
       const normalNote = 500;  // 四分音符（ratio=1なので最小値）
-      const longNote = 1000;   // 二分音符（ratio=2なので70px）
-      const veryLongNote = 2000; // 全音符（ratio=4なので150px）
+      const longNote = 1000;   // 二分音符（ratio=2なので130px）
+      const veryLongNote = 2000; // 全音符（ratio=4なので300px）
 
       const h1 = calculator.calculateNoteHeight(shortNote);
       const h2 = calculator.calculateNoteHeight(normalNote);
@@ -279,7 +364,7 @@ describe('NotePositionCalculator', () => {
       expect(h2).toBe(30);
       // 長いほど大きい
       expect(h3).toBe(130);
-      expect(h4).toBe(150); // 最大値
+      expect(h4).toBe(300); // 最大値
 
       // 順序確認
       expect(h3).toBeGreaterThan(h2);
