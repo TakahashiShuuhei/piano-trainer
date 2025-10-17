@@ -206,8 +206,19 @@ src/
 
 ### テスト実行
 ```bash
+# 全テストを実行
 npm test
+
+# 特定のテストファイルのみ実行
+npm test -- BeatTimeConverter.test.ts
+
+# カバレッジレポート付きで実行
+npm test -- --coverage
 ```
+
+### テストファイル
+- `src/utils/__tests__/BeatTimeConverter.test.ts` - BPMと拍の変換ロジックのテスト
+- `src/utils/__tests__/ContentLoader.test.ts` - 楽曲データの読み込みとバリデーションのテスト
 
 ### 技術スタック
 - **TypeScript**: 型安全な開発

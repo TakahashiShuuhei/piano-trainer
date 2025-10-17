@@ -1116,8 +1116,6 @@ export class PianoPracticeApp {
    * ループを開始（カウントダウン→演奏の繰り返し）
    */
   private startLoop(): void {
-    // 現在のループのスコアを累積に追加
-    this.scoreEvaluator.finalizeCurrentLoop();
 
     // 再生済みノートをクリア
     this.playedNotes.clear();
