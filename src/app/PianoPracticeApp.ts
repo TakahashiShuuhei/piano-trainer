@@ -9,6 +9,8 @@ import {
   Note,
   ScoreResult,
   MusicalNote,
+  SongMemo,
+  Memo,
   BeatTimeConverter as IBeatTimeConverter
 } from '../types/index.js';
 import { MIDIInputManager } from '../components/MIDIInputManager';
@@ -53,6 +55,10 @@ export class PianoPracticeApp {
   private musicalNotes: MusicalNote[] = [];
   // 現在表示中のノート（時間ベース、UIRenderer用）
   private currentNotes: Note[] = [];
+  // 音楽的メモ（拍ベース）
+  private musicalMemos: SongMemo[] = [];
+  // 現在表示中のメモ（時間ベース、UIRenderer用）
+  private currentMemos: Memo[] = [];
 
   constructor() {
     // コンストラクタは軽量に保つ
@@ -189,37 +195,38 @@ export class PianoPracticeApp {
   private async loadInitialContent(): Promise<void> {
     try {
       // URLパラメータから楽曲データを読み込み
-      const musicalNotes = await this.contentLoader.loadFromURL();
-      
-      if (musicalNotes) {
+      const songData = await this.contentLoader.loadFromURL();
+
+      if (songData) {
         // 外部楽曲データを使用
-        this.musicalNotes = musicalNotes;
-        
+        this.musicalNotes = songData.notes;
+        this.musicalMemos = songData.memos || [];
+
         // BPMも外部データから取得
         const songBPM = await this.contentLoader.getSongBPM();
         if (songBPM) {
           this.setBPM(songBPM);
         }
-        
+
         // タイトルを表示に反映
         const songTitle = await this.contentLoader.getSongTitle();
         if (songTitle) {
           this.updateSongTitle(songTitle);
         }
-        
+
         console.log('楽曲データを読み込みました:', songTitle || '無題', `(BPM: ${songBPM || 120})`);
       } else {
         // デフォルトのサンプルノートを使用
         this.loadSampleNotes();
         console.log('デフォルトのサンプル楽曲を使用します');
       }
-      
+
     } catch (error) {
       console.error('楽曲データの読み込みに失敗:', error);
-      
+
       // エラー時はデフォルトのサンプルノートを使用
       this.loadSampleNotes();
-      
+
       // ユーザーフレンドリーなメッセージを表示
       const errorMessage = error instanceof Error ? error.message : '楽曲データの読み込みに失敗しました';
       this.showError(`${errorMessage} デフォルトの楽曲を使用します。`);
@@ -249,7 +256,7 @@ export class PianoPracticeApp {
 
     try {
       // ファイルから楽曲データを読み込み
-      const musicalNotes = await this.contentLoader.loadFromFile(file);
+      const songData = await this.contentLoader.loadFromFile(file);
 
       // 楽曲データを読み込んだJSONからタイトルとBPMを取得
       const fileReader = new FileReader();
@@ -275,7 +282,8 @@ export class PianoPracticeApp {
       fileReader.readAsText(file, 'utf-8');
 
       // 楽曲データを設定
-      this.musicalNotes = musicalNotes;
+      this.musicalNotes = songData.notes;
+      this.musicalMemos = songData.memos || [];
 
       // 再生中の場合は停止
       if (this.currentGameState.phase !== GamePhase.STOPPED) {
@@ -603,7 +611,7 @@ export class PianoPracticeApp {
       }
 
       // UIRendererで画面を描画
-      this.uiRenderer.render(this.currentGameState, this.currentNotes);
+      this.uiRenderer.render(this.currentGameState, this.currentNotes, this.currentMemos);
 
       // シークバー表示を更新
       this.updateSeekBarDisplay();
@@ -699,6 +707,15 @@ export class PianoPracticeApp {
       { pitch: 76, timing: { beat: 12 + 2 / 3, duration: 1 / 3 }, velocity: 80 }, // E5: 3連符3つ目
     ];
 
+    // メモのサンプルを定義（拍ベース）
+    this.musicalMemos = [
+      { timing: { beat: 0 }, text: 'Cメジャースケール', align: 'center', color: 'blue' },
+      { timing: { beat: 4 }, text: 'Cメジャーコード', align: 'left', color: 'green' },
+      { timing: { beat: 6 }, text: '黒鍵 (C#, D#)', align: 'right', color: 'purple' },
+      { timing: { beat: 8 }, text: 'Amコード', align: 'center', color: 'orange' },
+      { timing: { beat: 12 }, text: '3連符', align: 'left', color: 'pink' },
+    ];
+
     // ノートの変換はゲーム開始時に行う
 
 
@@ -717,7 +734,16 @@ export class PianoPracticeApp {
       startTime: note.startTime // そのまま相対時間として使用
     }));
 
+    // メモも同時に変換
+    this.updateCurrentMemos();
 
+  }
+
+  /**
+   * 音楽的メモを時間ベースのメモに変換してcurrentMemosを更新
+   */
+  private updateCurrentMemos(): void {
+    this.currentMemos = this.beatTimeConverter.convertMemos(this.musicalMemos);
   }
 
   private showError(message: string): void {

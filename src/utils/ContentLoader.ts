@@ -1,4 +1,4 @@
-import { SongData, SongNote, MusicalNote } from '../types/index.js';
+import { SongData, SongNote, SongMemo, MusicalNote } from '../types/index.js';
 
 /**
  * 楽曲データの読み込みとバリデーションを行うクラス
@@ -8,45 +8,46 @@ export class ContentLoader {
   /**
    * URLパラメータから楽曲データを読み込み
    */
-  public async loadFromURL(): Promise<MusicalNote[] | null> {
+  public async loadFromURL(): Promise<{ notes: MusicalNote[], memos: SongMemo[] } | null> {
     const urlParams = new URLSearchParams(window.location.search);
-    
+
     // 外部JSONファイルのURL指定
     const songUrl = urlParams.get('song');
     if (songUrl) {
       return await this.loadFromExternalURL(songUrl);
     }
-    
+
     // Base64エンコードされたJSONデータ
     const dataParam = urlParams.get('data');
     if (dataParam) {
       return this.loadFromBase64(dataParam);
     }
-    
+
     return null; // パラメータなし
   }
 
   /**
    * ローカルファイルから楽曲データを読み込み
    */
-  public async loadFromFile(file: File): Promise<MusicalNote[]> {
+  public async loadFromFile(file: File): Promise<{ notes: MusicalNote[], memos: SongMemo[] }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
+
       reader.onload = (event) => {
         try {
           const jsonString = event.target?.result as string;
           const jsonData = JSON.parse(jsonString);
-          resolve(this.processSongData(jsonData));
+          const result = this.processSongData(jsonData);
+          resolve({ notes: result.notes, memos: result.memos });
         } catch (error) {
           reject(new Error('ファイルの読み込みに失敗しました'));
         }
       };
-      
+
       reader.onerror = () => {
         reject(new Error('ファイルの読み込みに失敗しました'));
       };
-      
+
       reader.readAsText(file, 'utf-8');
     });
   }
@@ -54,20 +55,21 @@ export class ContentLoader {
   /**
    * 外部URLからJSONファイルを読み込み
    */
-  private async loadFromExternalURL(url: string): Promise<MusicalNote[]> {
+  private async loadFromExternalURL(url: string): Promise<{ notes: MusicalNote[], memos: SongMemo[] }> {
     try {
       // CORSプロキシを使用する場合のオプション
       const corsProxyUrl = this.shouldUseCorsProxy(url) ? `https://cors-anywhere.herokuapp.com/${url}` : url;
-      
+
       const response = await fetch(corsProxyUrl);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const jsonData = await response.json();
-      return this.processSongData(jsonData);
-      
+      const result = this.processSongData(jsonData);
+      return { notes: result.notes, memos: result.memos };
+
     } catch (error) {
       console.error('Failed to load song from URL:', error);
       throw new Error(`楽曲の読み込みに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -97,13 +99,14 @@ export class ContentLoader {
   /**
    * Base64エンコードされたJSONデータを読み込み
    */
-  private loadFromBase64(base64Data: string): MusicalNote[] {
+  private loadFromBase64(base64Data: string): { notes: MusicalNote[], memos: SongMemo[] } {
     try {
       // UTF-8対応のBase64デコード
       const jsonString = this.decodeBase64UTF8(base64Data);
       const jsonData = JSON.parse(jsonString);
-      return this.processSongData(jsonData);
-      
+      const result = this.processSongData(jsonData);
+      return { notes: result.notes, memos: result.memos };
+
     } catch (error) {
       console.error('Failed to decode base64 data:', error);
       throw new Error('Base64データの解析に失敗しました');
@@ -136,17 +139,22 @@ export class ContentLoader {
   /**
    * SongDataをMusicalNoteに変換し、バリデーションを実行
    */
-  private processSongData(data: any): MusicalNote[] {
+  private processSongData(data: any): { notes: MusicalNote[], memos: SongMemo[] } {
     // バリデーション
     const songData = this.validateSongData(data);
-    
+
     // 空のノート配列の場合は警告を出すが処理は続行
     if (songData.notes.length === 0) {
       console.warn('楽曲データにノートが含まれていません。空の楽曲として読み込みます。');
     }
-    
+
     // SongNoteをMusicalNoteに変換
-    return this.convertToMusicalNotes(songData);
+    const notes = this.convertToMusicalNotes(songData);
+
+    // memosを取得（存在しない場合は空配列）
+    const memos = songData.memos || [];
+
+    return { notes, memos };
   }
   
   /**
@@ -178,11 +186,22 @@ export class ContentLoader {
     data.notes.forEach((note: any, index: number) => {
       this.validateSongNote(note, index);
     });
-    
+
+    // memos の検証（オプション）
+    if (data.memos !== undefined) {
+      if (!Array.isArray(data.memos)) {
+        throw new Error('memosは配列である必要があります');
+      }
+      data.memos.forEach((memo: any, index: number) => {
+        this.validateSongMemo(memo, index);
+      });
+    }
+
     return {
       title: data.title,
       bpm: data.bpm || 120, // デフォルト値
-      notes: data.notes
+      notes: data.notes,
+      memos: data.memos
     };
   }
   
@@ -226,6 +245,39 @@ export class ContentLoader {
     }
   }
   
+  /**
+   * SongMemoのバリデーション
+   */
+  private validateSongMemo(memo: any, index: number): void {
+    const memoPrefix = `メモ${index + 1}`;
+
+    if (!memo || typeof memo !== 'object') {
+      throw new Error(`${memoPrefix}: メモデータが正しくありません`);
+    }
+
+    // timing の検証
+    if (!memo.timing || typeof memo.timing !== 'object') {
+      throw new Error(`${memoPrefix}: timingが必要です`);
+    }
+
+    // beat の検証
+    if (typeof memo.timing.beat !== 'number' || memo.timing.beat < 0) {
+      throw new Error(`${memoPrefix}: beatは0以上の数値で指定してください`);
+    }
+
+    // text の検証
+    if (typeof memo.text !== 'string') {
+      throw new Error(`${memoPrefix}: textは文字列で指定してください`);
+    }
+
+    // align の検証（オプション）
+    if (memo.align !== undefined) {
+      if (!['left', 'center', 'right'].includes(memo.align)) {
+        throw new Error(`${memoPrefix}: alignは'left'、'center'、'right'のいずれかで指定してください`);
+      }
+    }
+  }
+
   /**
    * SongDataをMusicalNoteに変換
    */

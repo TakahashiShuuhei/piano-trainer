@@ -1,4 +1,4 @@
-import { BeatTimeConverter as IBeatTimeConverter, MusicalNote, Note } from '../types/index.js';
+import { BeatTimeConverter as IBeatTimeConverter, MusicalNote, Note, SongMemo, Memo } from '../types/index.js';
 
 /**
  * 音楽的タイミング（拍）と実時間（ミリ秒）の変換を行うクラス
@@ -108,6 +108,29 @@ export class BeatTimeConverter implements IBeatTimeConverter {
    */
   convertToMusicalNotes(notes: Note[]): MusicalNote[] {
     return notes.map(note => this.convertToMusicalNote(note));
+  }
+
+  /**
+   * SongMemoを時間ベースのMemoに変換
+   * @param songMemo 拍ベースのメモ
+   * @returns 時間ベースのメモ
+   */
+  convertMemo(songMemo: SongMemo): Memo {
+    return {
+      startTime: this.beatsToMs(songMemo.timing.beat),
+      text: songMemo.text,
+      align: songMemo.align || 'center',
+      color: songMemo.color || 'default'
+    };
+  }
+
+  /**
+   * SongMemo配列を時間ベースのMemo配列に変換
+   * @param songMemos 拍ベースのメモ配列
+   * @returns 時間ベースのメモ配列
+   */
+  convertMemos(songMemos: SongMemo[]): Memo[] {
+    return songMemos.map(memo => this.convertMemo(memo));
   }
 
   /**

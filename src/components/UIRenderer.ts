@@ -1,4 +1,4 @@
-import { GameState, GamePhase, Note, ScoreResult } from '../types/index.js';
+import { GameState, GamePhase, Note, ScoreResult, Memo } from '../types/index.js';
 
 /**
  * Canvas APIを使用したゲーム画面の描画とアニメーション管理
@@ -45,6 +45,18 @@ export class UIRenderer {
       noteTrail: 'rgba(77, 171, 247, 0.3)',
       chord: '#9c27b0'
     }
+  };
+
+  // メモのカラープリセット（おしゃれな配色）
+  private readonly memoColorPresets = {
+    default: { bg: 'rgba(30, 30, 30, 0.85)', text: '#4dabf7' },      // デフォルトのブルー
+    blue: { bg: 'rgba(37, 99, 235, 0.15)', text: '#60a5fa' },        // クールなブルー
+    green: { bg: 'rgba(34, 197, 94, 0.15)', text: '#4ade80' },       // フレッシュなグリーン
+    purple: { bg: 'rgba(168, 85, 247, 0.15)', text: '#c084fc' },     // エレガントなパープル
+    orange: { bg: 'rgba(249, 115, 22, 0.15)', text: '#fb923c' },     // 暖かいオレンジ
+    pink: { bg: 'rgba(236, 72, 153, 0.15)', text: '#f472b6' },       // かわいいピンク
+    red: { bg: 'rgba(239, 68, 68, 0.15)', text: '#f87171' },         // アクセントレッド
+    cyan: { bg: 'rgba(6, 182, 212, 0.15)', text: '#22d3ee' }         // 爽やかなシアン
   };
 
   // 鍵盤レイアウト設定（88鍵盤対応）
@@ -138,7 +150,7 @@ export class UIRenderer {
   /**
    * ゲーム状態とノート情報を基に画面を描画
    */
-  render(gameState: GameState, notes: Note[]): void {
+  render(gameState: GameState, notes: Note[], memos?: Memo[]): void {
     if (!this.ctx || !this.canvas) return;
 
     const currentColors = this.colors[this.theme];
@@ -154,6 +166,11 @@ export class UIRenderer {
 
     // ノートを描画（常に表示）
     this.drawNotes(notes, gameState.currentTime);
+
+    // メモを描画（ノートと同じタイミングで流れる）
+    if (memos && memos.length > 0) {
+      this.drawMemos(memos, gameState.currentTime);
+    }
 
     // カウントダウン表示（ノートの上に重ねて表示）
     if (gameState.phase === GamePhase.COUNTDOWN && gameState.countdownValue !== undefined) {
@@ -288,6 +305,119 @@ export class UIRenderer {
     this.ctx.stroke();
 
     this.ctx.setLineDash([]); // リセット
+  }
+
+  /**
+   * メモを描画（ノートと同じように流れる）
+   */
+  private drawMemos(memos: Memo[], currentTime: number): void {
+    if (!this.ctx || !this.canvas) return;
+
+    const width = this.canvas.width / window.devicePixelRatio;
+    const height = this.canvas.height / window.devicePixelRatio;
+
+    // 鍵盤エリアの高さ（画面下部20%）
+    const keyboardHeight = height * 0.2;
+    const noteAreaHeight = height - keyboardHeight;
+
+    const currentColors = this.colors[this.theme];
+
+    memos.forEach(memo => {
+      // メモの表示範囲を計算（ノートと同じロジック）
+      const showTime = memo.startTime - 2000;
+      const hideTime = memo.startTime + 500; // 表示時間を短縮
+
+      if (currentTime >= showTime && currentTime <= hideTime) {
+        // メモの表示タイミングを計算
+        const progress = Math.max(0, (currentTime - showTime) / 2000);
+        const y = progress * noteAreaHeight;
+
+        // メモが鍵盤エリアに入った場合（タイミングラインを過ぎた場合）は描画しない
+        if (y >= noteAreaHeight) {
+          return;
+        }
+
+        // 細い横線を描画（画面全体に）
+        this.ctx.strokeStyle = currentColors.secondary;
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([5, 3]); // 破線スタイル
+        this.ctx.globalAlpha = 0.5;
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, y);
+        this.ctx.lineTo(width, y);
+        this.ctx.stroke();
+
+        this.ctx.setLineDash([]); // リセット
+        this.ctx.globalAlpha = 1.0;
+
+        // 配置位置を計算（align に応じて）
+        let x: number;
+        const padding = 20;
+        switch (memo.align) {
+          case 'left':
+            x = padding;
+            this.ctx.textAlign = 'left';
+            break;
+          case 'right':
+            x = width - padding;
+            this.ctx.textAlign = 'right';
+            break;
+          case 'center':
+          default:
+            x = width / 2;
+            this.ctx.textAlign = 'center';
+            break;
+        }
+
+        // メモのカラープリセットを取得
+        const colorPreset = this.memoColorPresets[memo.color] || this.memoColorPresets.default;
+
+        // メモテキストを描画（線より上に）
+        this.ctx.fillStyle = colorPreset.text;
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.textBaseline = 'alphabetic';
+
+        // 背景を描画（視認性向上）
+        const textMetrics = this.ctx.measureText(memo.text);
+        const textWidth = textMetrics.width;
+        // actualBoundingBoxを使用して実際のテキストの高さを取得
+        const textAscent = textMetrics.actualBoundingBoxAscent || 20;
+        const textDescent = textMetrics.actualBoundingBoxDescent || 5;
+        const textHeight = textAscent + textDescent;
+        const bgPadding = 8;
+
+        // 背景の高さ（パディングを含む）
+        const bgHeight = textHeight + bgPadding * 2;
+
+        // 背景全体が線より上に来るように、線から背景の高さ分上に配置
+        const bgY = y - bgHeight;
+        const textY = bgY + bgPadding + textAscent;
+
+        // 背景矩形の位置を計算（線より上に配置）
+        let bgX: number;
+        switch (memo.align) {
+          case 'left':
+            bgX = x - bgPadding;
+            break;
+          case 'right':
+            bgX = x - textWidth - bgPadding;
+            break;
+          case 'center':
+          default:
+            bgX = x - textWidth / 2 - bgPadding;
+            break;
+        }
+
+        // 半透明の背景を描画（線より完全に上に）
+        this.ctx.fillStyle = colorPreset.bg;
+        this.drawRoundedRect(bgX, bgY, textWidth + bgPadding * 2, bgHeight, 8);
+
+        // テキストを描画（背景の中に）
+        this.ctx.fillStyle = colorPreset.text;
+        this.ctx.fillText(memo.text, x, textY);
+      }
+    });
   }
 
 

@@ -33,6 +33,7 @@ export interface SongData {
   title: string;
   bpm?: number;        // デフォルト: 120
   notes: SongNote[];
+  memos?: SongMemo[];  // オプション: 楽曲中のメモ・アノテーション
 }
 
 export interface SongNote {
@@ -44,6 +45,21 @@ export interface SongNote {
 export interface SongTiming {
   beat: number;        // 開始位置（四分音符単位）
   duration?: number;   // デフォルト: 1
+}
+
+export interface SongMemo {
+  timing: { beat: number };  // 表示タイミング（四分音符単位）
+  text: string;              // 表示するテキスト
+  align?: 'left' | 'center' | 'right';  // デフォルト: 'center'
+  color?: 'default' | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'red' | 'cyan';  // デフォルト: 'default'
+}
+
+// 時間ベースのメモ（内部使用）
+export interface Memo {
+  startTime: number;  // ミリ秒
+  text: string;
+  align: 'left' | 'center' | 'right';
+  color: 'default' | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'red' | 'cyan';
 }
 
 export interface PracticeSession {
@@ -104,7 +120,7 @@ export interface ScoreEvaluator {
 
 export interface UIRenderer {
   initCanvas(canvasElement: HTMLCanvasElement): void;
-  render(gameState: GameState, notes: Note[]): void;
+  render(gameState: GameState, notes: Note[], memos?: Memo[]): void;
   showNoteHit(note: Note, result: ScoreResult): void;
   updateScore(score: number, accuracy: number): void;
   showMetronome(beat: number): void;
@@ -145,4 +161,6 @@ export interface BeatTimeConverter {
   getBPM(): number;
   convertNote(musicalNote: MusicalNote): Note;
   convertNotes(musicalNotes: MusicalNote[]): Note[];
+  convertMemo(songMemo: SongMemo): Memo;
+  convertMemos(songMemos: SongMemo[]): Memo[];
 }
