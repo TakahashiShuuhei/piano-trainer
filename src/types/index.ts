@@ -121,15 +121,11 @@ export interface ScoreEvaluator {
 export interface UIRenderer {
   initCanvas(canvasElement: HTMLCanvasElement): void;
   render(gameState: GameState, notes: Note[], memos?: Memo[]): void;
-  showNoteHit(note: Note, result: ScoreResult): void;
   updateScore(score: number, accuracy: number): void;
-  showMetronome(beat: number): void;
   setTheme(theme: 'light' | 'dark'): void;
   setBPM(bpm: number): void;
   setCurrentTargetKeys(keys: number[]): void;
   clearTargetKeys(): void;
-  startAnimationLoop(): void;
-  stopAnimationLoop(): void;
   setKeyPressed(pitch: number, pressed: boolean): void;
   clearPressedKeys(): void;
   destroy(): void;

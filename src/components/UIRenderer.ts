@@ -8,7 +8,6 @@ import { NotePositionCalculator } from '../utils/NotePositionCalculator.js';
 export class UIRenderer {
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
-  private animationId: number | null = null;
   private theme: 'light' | 'dark' = 'dark';
 
   // 鍵盤レイアウト計算機
@@ -654,108 +653,6 @@ export class UIRenderer {
     }
   }
 
-  /**
-   * ノートヒット時の視覚エフェクトを表示
-   */
-  showNoteHit(note: Note, result: ScoreResult): void {
-    if (!this.ctx || !this.canvas) return;
-
-    const currentColors = this.colors[this.theme];
-    const width = this.canvas.width / window.devicePixelRatio;
-    const height = this.canvas.height / window.devicePixelRatio;
-
-    const x = this.getPreciseNoteXPosition(note.pitch, width);
-    const y = height - (height * 0.1); // 鍵盤エリアの上部
-
-    // ノート状態を更新
-    const noteId = `${note.pitch}-${note.startTime}`;
-    this.noteStates.set(noteId, result.isCorrect ? 'hit' : 'missed');
-
-    // 結果に応じた色を選択
-    let color: string;
-    switch (result.feedback) {
-      case 'perfect':
-        color = currentColors.success;
-        break;
-      case 'good':
-        color = currentColors.accent;
-        break;
-      case 'miss':
-        color = currentColors.error;
-        break;
-      default:
-        color = currentColors.secondary;
-    }
-
-    // エフェクト円を描画（サイズを調整）
-    const effectSize = result.feedback === 'perfect' ? 40 : result.feedback === 'good' ? 30 : 25;
-
-    this.ctx.fillStyle = color;
-    this.ctx.globalAlpha = 0.8;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, effectSize, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.globalAlpha = 1.0;
-
-    // フィードバックテキストを表示
-    this.ctx.fillStyle = this.getContrastColor(color);
-    this.ctx.font = 'bold 16px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(result.feedback.toUpperCase(), x, y + 5);
-
-    // スコアを表示
-    if (result.points > 0) {
-      this.ctx.fillStyle = currentColors.success;
-      this.ctx.font = '12px Arial';
-      this.ctx.fillText(`+${result.points}`, x, y - 25);
-    }
-
-    // エフェクトを一定時間後にフェードアウト
-    setTimeout(() => {
-      this.fadeOutEffect(x, y, color, effectSize);
-    }, 500);
-  }
-
-  /**
-   * エフェクトのフェードアウト
-   */
-  private fadeOutEffect(x: number, y: number, color: string, size: number): void {
-    if (!this.ctx) return;
-
-    const ctx = this.ctx;
-    let alpha = 0.8;
-    const fadeInterval = setInterval(() => {
-      if (alpha <= 0) {
-        clearInterval(fadeInterval);
-        return;
-      }
-
-      // 前のエフェクトをクリア（簡易版）
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, size * (1 + (0.8 - alpha)), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-
-      alpha -= 0.1;
-    }, 50);
-  }
-
-  /**
-   * ノート状態をクリア
-   */
-  clearNoteStates(): void {
-    this.noteStates.clear();
-  }
-
-  /**
-   * 特定のノートの状態を設定
-   */
-  setNoteState(note: Note, state: 'pending' | 'hit' | 'missed'): void {
-    const noteId = `${note.pitch}-${note.startTime}`;
-    this.noteStates.set(noteId, state);
-  }
 
   /**
    * 鍵盤が押されたことを記録
@@ -783,29 +680,6 @@ export class UIRenderer {
 
   }
 
-  /**
-   * メトロノームビートの視覚表示
-   */
-  showMetronome(beat: number): void {
-    if (!this.ctx || !this.canvas) return;
-
-    const currentColors = this.colors[this.theme];
-    const width = this.canvas.width / window.devicePixelRatio;
-
-    // メトロノームインジケーターを右上に表示
-    const x = width - 60;
-    const y = 80;
-
-    this.ctx.fillStyle = beat === 1 ? currentColors.accent : currentColors.secondary;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, 15, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    this.ctx.fillStyle = currentColors.background;
-    this.ctx.font = '12px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(beat.toString(), x, y + 4);
-  }
 
   /**
    * テーマを設定
@@ -815,34 +689,6 @@ export class UIRenderer {
 
   }
 
-  /**
-   * アニメーションループを開始
-   */
-  startAnimationLoop(): void {
-    if (this.animationId !== null) {
-      return; // 既に開始されている
-    }
-
-    const animate = () => {
-      // アニメーションフレームでの更新処理
-      // 実際のゲーム状態は外部から render メソッドで渡される
-      this.animationId = requestAnimationFrame(animate);
-    };
-
-    this.animationId = requestAnimationFrame(animate);
-
-  }
-
-  /**
-   * アニメーションループを停止
-   */
-  stopAnimationLoop(): void {
-    if (this.animationId !== null) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-
-    }
-  }
 
   /**
    * ユーティリティ: 音程に基づいてノートのX座標を計算（88鍵盤対応）
@@ -958,14 +804,11 @@ export class UIRenderer {
    * リソースのクリーンアップ
    */
   destroy(): void {
-    this.stopAnimationLoop();
-
     if (this.canvas) {
       window.removeEventListener('resize', () => this.resizeCanvas());
     }
 
     this.canvas = null;
     this.ctx = null;
-
   }
 }
