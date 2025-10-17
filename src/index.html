@@ -259,11 +259,6 @@
             <button class="btn secondary" id="pauseBtn" disabled>一時停止</button>
             <button class="btn secondary" id="stopBtn" disabled>停止</button>
         </div>
-        
-        <div style="text-align: center; margin: 15px 0; color: #9ca3af; font-size: 14px;">
-            💡 MIDI接続なしでも楽曲再生とキーボード入力（a,s,d,f,g,h,j,k）で練習できます<br>
-            ⌨️ 左右キーで1拍ずつシーク
-        </div>
 
         <div class="controls-section" style="text-align: center; margin: 20px 0;">
             <!-- シークバー -->
@@ -278,20 +273,26 @@
                 </div>
             </div>
 
-            <!-- 部分リピート設定 -->
+            <!-- リピート設定 -->
             <div class="partial-repeat-controls" style="margin-bottom: 20px; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; max-width: 800px; margin-left: auto; margin-right: auto;">
                 <div style="margin-bottom: 10px;">
                     <label style="color: white; font-weight: bold;">
                         <input type="checkbox" id="partialRepeatEnabled" style="margin-right: 5px;">
-                        部分リピート
+                        リピート練習
                     </label>
                 </div>
-                <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
                     <button class="btn accent" id="setPointA" style="padding: 8px 16px; white-space: nowrap;">
                         開始位置を現在地に
                     </button>
+                    <button class="btn accent" id="setPointAToStart" style="padding: 8px 16px; white-space: nowrap;">
+                        開始を最初に
+                    </button>
                     <button class="btn accent" id="setPointB" style="padding: 8px 16px; white-space: nowrap;">
                         終了位置を現在地に
+                    </button>
+                    <button class="btn accent" id="setPointBToEnd" style="padding: 8px 16px; white-space: nowrap;">
+                        終了を最後に
                     </button>
                     <button class="btn secondary" id="clearRepeatPoints" style="padding: 8px 16px;">
                         クリア
@@ -331,15 +332,6 @@
                     <input type="range" id="volumeSlider" min="0" max="100" value="60">
                     <span id="volumeDisplay" style="color: white; font-weight: bold;">60%</span>
                 </div>
-            </div>
-
-            <!-- ループ練習設定 -->
-            <div class="loop-controls" style="margin-bottom: 15px;">
-                <label style="color: white; margin-right: 10px;">
-                    <input type="checkbox" id="loopEnabled" style="margin-right: 5px;">
-                    全曲ループ練習
-                </label>
-
             </div>
         </div>
     </div>

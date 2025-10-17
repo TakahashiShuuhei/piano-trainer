@@ -182,13 +182,10 @@ export class PianoPracticeApp {
     // 音量調整コントロール
     this.setupVolumeControls();
 
-    // ループ練習コントロール
-    this.setupLoopControls();
-
     // シークバーコントロール
     this.setupSeekBarControls();
 
-    // 部分リピートコントロール
+    // リピート練習コントロール
     this.setupPartialRepeatControls();
   }
 
@@ -893,10 +890,7 @@ export class PianoPracticeApp {
   // 既に再生したノートを追跡
   private playedNotes = new Set<string>();
 
-  // シンプルなループ機能
-  private isLoopEnabled = false;
-
-  // 部分リピート機能
+  // リピート機能（部分リピートで全曲ループも実現）
   private isPartialRepeatEnabled = false;
   private repeatStartBeat: number | null = null;
   private repeatEndBeat: number | null = null;
@@ -1088,7 +1082,7 @@ export class PianoPracticeApp {
       return;
     }
 
-    // 全曲ループまたは通常の終了チェック
+    // リピート無効時は楽曲終了で停止
     const lastNote = this.currentNotes[this.currentNotes.length - 1];
     if (!lastNote) return;
 
@@ -1096,48 +1090,10 @@ export class PianoPracticeApp {
 
     // 楽曲が終了したかチェック（1秒のマージン）
     if (currentTime >= songEndTime + 1000) {
-      if (this.isLoopEnabled) {
-        this.startLoop();
-      } else {
-        this.handleStop();
-      }
+      this.handleStop();
     }
   }
 
-  /**
-   * ループを開始（カウントダウン→演奏の繰り返し）
-   */
-  private startLoop(): void {
-
-    // 再生済みノートをクリア
-    this.playedNotes.clear();
-
-    // 演奏ガイドをクリア
-    this.uiRenderer.clearTargetKeys();
-
-    // カウントダウンを開始（既存の処理を再利用）
-    this.startCountdown();
-  }
-
-  /**
-   * ループ練習を有効/無効にする
-   */
-  public setLoopEnabled(enabled: boolean): void {
-    this.isLoopEnabled = enabled;
-  }
-
-  /**
-   * ループ練習コントロールを設定
-   */
-  private setupLoopControls(): void {
-    const loopEnabled = document.getElementById('loopEnabled') as HTMLInputElement;
-
-    if (loopEnabled) {
-      loopEnabled.addEventListener('change', () => {
-        this.setLoopEnabled(loopEnabled.checked);
-      });
-    }
-  }
 
   /**
    * シークバーコントロールを設定
@@ -1250,7 +1206,9 @@ export class PianoPracticeApp {
   private setupPartialRepeatControls(): void {
     const partialRepeatEnabled = document.getElementById('partialRepeatEnabled') as HTMLInputElement;
     const setPointA = document.getElementById('setPointA');
+    const setPointAToStart = document.getElementById('setPointAToStart');
     const setPointB = document.getElementById('setPointB');
+    const setPointBToEnd = document.getElementById('setPointBToEnd');
     const clearRepeatPoints = document.getElementById('clearRepeatPoints');
     const pointAInput = document.getElementById('pointAInput') as HTMLInputElement;
     const pointBInput = document.getElementById('pointBInput') as HTMLInputElement;
@@ -1267,9 +1225,21 @@ export class PianoPracticeApp {
       });
     }
 
+    if (setPointAToStart) {
+      setPointAToStart.addEventListener('click', () => {
+        this.setRepeatPointToStart();
+      });
+    }
+
     if (setPointB) {
       setPointB.addEventListener('click', () => {
         this.setRepeatPoint('end');
+      });
+    }
+
+    if (setPointBToEnd) {
+      setPointBToEnd.addEventListener('click', () => {
+        this.setRepeatPointToEnd();
       });
     }
 
@@ -1330,6 +1300,45 @@ export class PianoPracticeApp {
         void input.offsetWidth; // リフロー強制でアニメーションをリスタート
         input.classList.add('repeat-point-highlight');
       }
+    }
+  }
+
+  /**
+   * 開始位置を楽曲の最初（0拍目）に設定
+   */
+  private setRepeatPointToStart(): void {
+    this.repeatStartBeat = 0;
+    const input = document.getElementById('pointAInput') as HTMLInputElement;
+    if (input) {
+      input.value = '0.0';
+      // アニメーションを適用
+      input.classList.remove('repeat-point-highlight');
+      void input.offsetWidth;
+      input.classList.add('repeat-point-highlight');
+    }
+  }
+
+  /**
+   * 終了位置を楽曲の最後に設定
+   */
+  private setRepeatPointToEnd(): void {
+    if (this.currentNotes.length === 0) {
+      this.showError('楽曲データが読み込まれていません');
+      return;
+    }
+
+    // 最後のノートの終了位置を計算
+    const lastNote = this.currentNotes[this.currentNotes.length - 1];
+    const lastNoteBeat = this.beatTimeConverter.msToBeats(lastNote.startTime + lastNote.duration);
+
+    this.repeatEndBeat = lastNoteBeat;
+    const input = document.getElementById('pointBInput') as HTMLInputElement;
+    if (input) {
+      input.value = lastNoteBeat.toFixed(1);
+      // アニメーションを適用
+      input.classList.remove('repeat-point-highlight');
+      void input.offsetWidth;
+      input.classList.add('repeat-point-highlight');
     }
   }
 
