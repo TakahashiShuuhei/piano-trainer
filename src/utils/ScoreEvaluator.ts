@@ -4,18 +4,31 @@ import { Note } from '../types/index.js';
  * スコア評価クラス
  * シンプルなアプローチ：
  * - ±100msecの許容範囲でヒット判定
- * - 各ノートは最大1回まで正解
+ * - 各ノートは各プレイセッションで最大1回まで正解
  * - 関係ない音は無視（ミスとしてカウントしない）
  * - 連打も無視
+ *
+ * プレイセッション管理：
+ * - シークや部分リピートに対応するため、セッションIDで管理
+ * - ノートIDベースで管理（インデックスに依存しない）
  */
 export class ScoreEvaluator {
-  private hitNoteIndices = new Set<number>();      // 正解したノートのindex（現在のループ）
-  private activeNoteIndices = new Set<number>();   // 現在アクティブ（演奏対象）なノートのindex（現在のループ）
+  // プレイセッション管理
+  private currentPlaySessionId = 0;
+  private hitNotes = new Map<string, number>();    // noteId -> sessionId
+  private activeNotes = new Map<string, number>(); // noteId -> sessionId
   private readonly hitWindow = 200; // ±200msec
 
   // ループ対応：累積スコア管理
   private totalCorrectCount = 0;  // 全ループ通しての正解数
   private totalNoteCount = 0;     // 全ループ通しての総ノート数
+
+  /**
+   * ノートの一意なIDを生成
+   */
+  private getNoteId(note: Note): string {
+    return `${note.pitch}-${note.startTime}`;
+  }
 
   /**
    * キーボード入力時の評価
@@ -31,20 +44,22 @@ export class ScoreEvaluator {
     // 候補ノートを探す（未ヒット + 音程一致 + タイミング範囲内）
     const candidates = notes
       .map((note, index) => ({ note, index }))
-      .filter(({ note, index }) =>
-        !this.hitNoteIndices.has(index) &&
-        note.pitch === inputNote &&
-        Math.abs(note.startTime - currentTime) <= this.hitWindow
-      )
-      .sort((a, b) => a.index - b.index); // indexの小さい順
+      .filter(({ note, index }) => {
+        const noteId = this.getNoteId(note);
+        const isAlreadyHit = this.hitNotes.get(noteId) === this.currentPlaySessionId;
+        return !isAlreadyHit &&
+          note.pitch === inputNote &&
+          Math.abs(note.startTime - currentTime) <= this.hitWindow;
+      })
+      .sort((a, b) => a.note.startTime - b.note.startTime); // startTimeの早い順
 
     if (candidates.length > 0) {
-      const hitIndex = candidates[0]!.index;
-      this.hitNoteIndices.add(hitIndex);
+      const { note, index } = candidates[0]!;
+      const noteId = this.getNoteId(note);
+      this.hitNotes.set(noteId, this.currentPlaySessionId);
 
-      return { isHit: true, hitNoteIndex: hitIndex };
+      return { isHit: true, hitNoteIndex: index };
     }
-
 
     return { isHit: false };
   }
@@ -56,16 +71,19 @@ export class ScoreEvaluator {
    * @param notes 楽譜のノート配列
    */
   public updateActiveNotes(currentTime: number, notes: Note[]): void {
-    notes.forEach((note, index) => {
+    notes.forEach((note) => {
+      const noteId = this.getNoteId(note);
+      const isAlreadyActive = this.activeNotes.get(noteId) === this.currentPlaySessionId;
+
       // ノートの開始タイミングに到達したらアクティブに追加
-      if (currentTime >= note.startTime && !this.activeNoteIndices.has(index)) {
-        this.activeNoteIndices.add(index);
+      if (currentTime >= note.startTime && !isAlreadyActive) {
+        this.activeNotes.set(noteId, this.currentPlaySessionId);
       }
     });
   }
 
   /**
-   * 現在のスコアを取得（累積スコア + 現在のループ）
+   * 現在のスコアを取得（累積スコア + 現在のセッション）
    * @returns スコア情報
    */
   public getScore(): {
@@ -75,19 +93,22 @@ export class ScoreEvaluator {
     hitIndices: number[];
     activeIndices: number[];
   } {
-    // 累積スコア + 現在のループのスコア
-    const currentCorrect = this.hitNoteIndices.size;
-    const currentTotal = this.activeNoteIndices.size;
+    // 現在のセッションでヒット/アクティブなノート数を計算
+    const currentCorrect = Array.from(this.hitNotes.values())
+      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
+    const currentTotal = Array.from(this.activeNotes.values())
+      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
 
     const totalCorrect = this.totalCorrectCount + currentCorrect;
     const totalNotes = this.totalNoteCount + currentTotal;
 
+    // インデックスの代わりにnoteIdを返す（後方互換性のため空配列）
     return {
       correct: totalCorrect,
       total: totalNotes,
       accuracy: totalNotes > 0 ? totalCorrect / totalNotes : 1.0,
-      hitIndices: Array.from(this.hitNoteIndices).sort((a, b) => a - b),
-      activeIndices: Array.from(this.activeNoteIndices).sort((a, b) => a - b)
+      hitIndices: [], // 非推奨：IDベースに移行したため空
+      activeIndices: [] // 非推奨：IDベースに移行したため空
     };
   }
 
@@ -95,64 +116,82 @@ export class ScoreEvaluator {
    * 見逃したノートを取得
    * アクティブになったが、まだヒットしていないノート
    */
-  public getMissedNotes(currentTime: number, notes: Note[]): number[] {
-    const missedIndices: number[] = [];
+  public getMissedNotes(currentTime: number, notes: Note[]): string[] {
+    const missedNoteIds: string[] = [];
 
-    this.activeNoteIndices.forEach(index => {
-      const note = notes[index];
-      if (note && !this.hitNoteIndices.has(index)) {
+    notes.forEach(note => {
+      const noteId = this.getNoteId(note);
+      const isActive = this.activeNotes.get(noteId) === this.currentPlaySessionId;
+      const isHit = this.hitNotes.get(noteId) === this.currentPlaySessionId;
+
+      if (isActive && !isHit) {
         // ノートの終了時刻 + 許容範囲を過ぎていたら見逃し
         const noteEndTime = note.startTime + note.duration;
         if (currentTime > noteEndTime + this.hitWindow) {
-          missedIndices.push(index);
+          missedNoteIds.push(noteId);
         }
       }
     });
 
-    return missedIndices;
+    return missedNoteIds;
   }
 
   /**
    * 現在ヒット可能なノートを取得（デバッグ用）
    */
   public getHitableNotes(inputNote: number, currentTime: number, notes: Note[]): Array<{
-    index: number;
+    noteId: string;
     note: Note;
     timingDiff: number;
   }> {
     return notes
-      .map((note, index) => ({ note, index }))
-      .filter(({ note, index }) =>
-        !this.hitNoteIndices.has(index) &&
-        note.pitch === inputNote &&
-        Math.abs(note.startTime - currentTime) <= this.hitWindow
-      )
-      .map(({ note, index }) => ({
-        index,
+      .filter(note => {
+        const noteId = this.getNoteId(note);
+        const isAlreadyHit = this.hitNotes.get(noteId) === this.currentPlaySessionId;
+        return !isAlreadyHit &&
+          note.pitch === inputNote &&
+          Math.abs(note.startTime - currentTime) <= this.hitWindow;
+      })
+      .map(note => ({
+        noteId: this.getNoteId(note),
         note,
         timingDiff: note.startTime - currentTime
       }))
-      .sort((a, b) => a.index - b.index);
+      .sort((a, b) => a.note.startTime - b.note.startTime);
   }
 
   /**
    * 現在のループのスコアを累積に追加（ループ終了時に呼び出し）
    */
   public finalizeCurrentLoop(): void {
-    this.totalCorrectCount += this.hitNoteIndices.size;
-    this.totalNoteCount += this.activeNoteIndices.size;
+    // 現在のセッションのスコアを累積に追加
+    const currentCorrect = Array.from(this.hitNotes.values())
+      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
+    const currentTotal = Array.from(this.activeNotes.values())
+      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
 
-    // 現在のループの状態をクリア
-    this.hitNoteIndices.clear();
-    this.activeNoteIndices.clear();
+    this.totalCorrectCount += currentCorrect;
+    this.totalNoteCount += currentTotal;
+
+    // 新しいプレイセッションを開始
+    this.startNewPlaySession();
   }
 
   /**
-   * スコア評価をリセット（新しいセッション開始時）
+   * 新しいプレイセッションを開始（シークや部分リピート時に使用）
+   */
+  public startNewPlaySession(): void {
+    this.currentPlaySessionId++;
+    // 古いセッションのデータは保持（履歴として残す）
+  }
+
+  /**
+   * スコア評価を完全リセット（新しいゲーム開始時）
    */
   public reset(): void {
-    this.hitNoteIndices.clear();
-    this.activeNoteIndices.clear();
+    this.hitNotes.clear();
+    this.activeNotes.clear();
+    this.currentPlaySessionId = 0;
 
     // 累積スコアもリセット
     this.totalCorrectCount = 0;
@@ -164,11 +203,17 @@ export class ScoreEvaluator {
    */
   public debugInfo(): void {
     const score = this.getScore();
+    const currentCorrect = Array.from(this.hitNotes.values())
+      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
+    const currentTotal = Array.from(this.activeNotes.values())
+      .filter(sessionId => sessionId === this.currentPlaySessionId).length;
+
     console.log('=== ScoreEvaluator Debug Info ===');
-    console.log(`Current loop - Hit notes: [${score.hitIndices.join(', ')}]`);
-    console.log(`Current loop - Active notes: [${score.activeIndices.join(', ')}]`);
+    console.log(`Current session ID: ${this.currentPlaySessionId}`);
+    console.log(`Current session - Hit notes: ${currentCorrect}`);
+    console.log(`Current session - Active notes: ${currentTotal}`);
     console.log(`Total accumulated score: ${score.correct}/${score.total} (${(score.accuracy * 100).toFixed(1)}%)`);
-    console.log(`Accumulated from previous loops: ${this.totalCorrectCount}/${this.totalNoteCount}`);
-    console.log(`Current loop: ${this.hitNoteIndices.size}/${this.activeNoteIndices.size}`);
+    console.log(`Accumulated from previous sessions: ${this.totalCorrectCount}/${this.totalNoteCount}`);
+    console.log(`Total tracked notes: ${this.hitNotes.size} hit, ${this.activeNotes.size} active`);
   }
 }
