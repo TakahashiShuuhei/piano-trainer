@@ -1,4 +1,5 @@
 import { GameState, GamePhase, Note, ScoreResult, Memo } from '../types/index.js';
+import { KeyboardLayoutCalculator, KeyboardLayout } from '../utils/KeyboardLayoutCalculator.js';
 
 /**
  * Canvas APIを使用したゲーム画面の描画とアニメーション管理
@@ -8,6 +9,9 @@ export class UIRenderer {
   private ctx: CanvasRenderingContext2D | null = null;
   private animationId: number | null = null;
   private theme: 'light' | 'dark' = 'dark';
+
+  // 鍵盤レイアウト計算機
+  private keyboardLayoutCalculator = new KeyboardLayoutCalculator();
 
   // 描画設定
   private readonly colors = {
@@ -59,13 +63,8 @@ export class UIRenderer {
     cyan: { bg: 'rgba(6, 182, 212, 0.15)', text: '#22d3ee' }         // 爽やかなシアン
   };
 
-  // 鍵盤レイアウト設定（88鍵盤対応）
-  private readonly keyboardLayout = {
-    whiteKeys: [0, 2, 4, 5, 7, 9, 11], // C, D, E, F, G, A, B
-    blackKeys: [1, 3, 6, 8, 10], // C#, D#, F#, G#, A#
-    // 88鍵盤: A0(21) から C8(108) まで
-    // A0=21, A#0=22, B0=23, C1=24, ..., C8=108
-    midiRange: { min: 21, max: 108 }, // A0 to C8 (88 keys)
+  // 鍵盤レイアウト（計算結果を保持）
+  private keyboardLayout: KeyboardLayout = {
     whiteKeyWidth: 0,
     blackKeyWidth: 0,
     whiteKeyHeight: 0,
@@ -128,20 +127,8 @@ export class UIRenderer {
     const width = this.canvas.width / window.devicePixelRatio;
     const height = this.canvas.height / window.devicePixelRatio;
 
-    // 鍵盤エリアの設定
-    const keyboardHeight = height * 0.2;
-
-    // 88鍵盤の白鍵数を計算
-    // A0, A#0, B0 (オクターブ0: 白鍵2個 - A0, B0)
-    // C1-B1 から C7-B7 (7オクターブ: 白鍵 7×7=49個)
-    // C8 (オクターブ8: 白鍵1個)
-    // 合計: 2 + 49 + 1 = 52個の白鍵
-    const totalWhiteKeys = 52;
-
-    this.keyboardLayout.whiteKeyWidth = width / totalWhiteKeys;
-    this.keyboardLayout.blackKeyWidth = this.keyboardLayout.whiteKeyWidth * 0.6;
-    this.keyboardLayout.whiteKeyHeight = keyboardHeight;
-    this.keyboardLayout.blackKeyHeight = keyboardHeight * 0.6;
+    // KeyboardLayoutCalculatorを使用してレイアウトを計算
+    this.keyboardLayout = this.keyboardLayoutCalculator.calculateLayout(width, height);
   }
 
   // 現在のBPMを保持（外部から設定）
@@ -557,15 +544,14 @@ export class UIRenderer {
 
     const ctx = this.ctx;
     const currentColors = this.colors[this.theme];
-    let whiteKeyIndex = 0;
+    const midiRange = this.keyboardLayoutCalculator.getMidiRange();
 
     // 88鍵盤の白鍵を順番に描画
-    for (let midiNote = this.keyboardLayout.midiRange.min; midiNote <= this.keyboardLayout.midiRange.max; midiNote++) {
-      const noteInOctave = midiNote % 12;
-
+    let whiteKeyIndex = 0;
+    for (let midiNote = midiRange.min; midiNote <= midiRange.max; midiNote++) {
       // 白鍵のみ描画
-      if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
-        const x = whiteKeyIndex * this.keyboardLayout.whiteKeyWidth;
+      if (this.keyboardLayoutCalculator.isWhiteKey(midiNote)) {
+        const x = this.keyboardLayoutCalculator.getWhiteKeyX(whiteKeyIndex, this.keyboardLayout);
 
         // 白鍵を描画（押下状態とガイド状態を考慮）
         const isPressed = this.pressedKeys.has(midiNote);
@@ -617,22 +603,20 @@ export class UIRenderer {
 
     const ctx = this.ctx;
     const currentColors = this.colors[this.theme];
-    let whiteKeyIndex = 0;
+    const midiRange = this.keyboardLayoutCalculator.getMidiRange();
 
     // 88鍵盤の黒鍵を描画
-    for (let midiNote = this.keyboardLayout.midiRange.min; midiNote <= this.keyboardLayout.midiRange.max; midiNote++) {
-      const noteInOctave = midiNote % 12;
-
+    let whiteKeyIndex = 0;
+    for (let midiNote = midiRange.min; midiNote <= midiRange.max; midiNote++) {
       // 白鍵の位置をカウント（黒鍵の位置計算のため）
-      if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
+      if (this.keyboardLayoutCalculator.isWhiteKey(midiNote)) {
         whiteKeyIndex++;
       }
 
       // 黒鍵のみ描画
-      if (this.keyboardLayout.blackKeys.includes(noteInOctave)) {
-        // 黒鍵の位置を計算（直前の白鍵の右端に配置）
-        const x = (whiteKeyIndex - 1) * this.keyboardLayout.whiteKeyWidth +
-          this.keyboardLayout.whiteKeyWidth - this.keyboardLayout.blackKeyWidth / 2;
+      if (this.keyboardLayoutCalculator.isBlackKey(midiNote)) {
+        // 黒鍵の位置を計算
+        const x = this.keyboardLayoutCalculator.getBlackKeyX(whiteKeyIndex, this.keyboardLayout);
 
         // 黒鍵を描画（押下状態とガイド状態を考慮）
         const isPressed = this.pressedKeys.has(midiNote);
@@ -868,47 +852,14 @@ export class UIRenderer {
    * ユーティリティ: 音程に基づいてノートのX座標を計算（88鍵盤対応）
    */
   private getPreciseNoteXPosition(pitch: number, _canvasWidth: number): number {
-    // 88鍵盤の範囲チェック
-    if (pitch < this.keyboardLayout.midiRange.min || pitch > this.keyboardLayout.midiRange.max) {
-      return -1; // 表示範囲外
-    }
-
-    const noteInOctave = pitch % 12;
-    let whiteKeyIndex = 0;
-
-    // 指定されたピッチまでの白鍵数をカウント（黒鍵描画と同じロジック）
-    for (let midiNote = this.keyboardLayout.midiRange.min; midiNote <= pitch; midiNote++) {
-      const currentNoteInOctave = midiNote % 12;
-
-      // 白鍵の位置をカウント（黒鍵の位置計算のため）
-      if (this.keyboardLayout.whiteKeys.includes(currentNoteInOctave)) {
-        whiteKeyIndex++;
-      }
-
-      // 目的のピッチに到達したら処理を終了
-      if (midiNote === pitch) {
-        break;
-      }
-    }
-
-    if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
-      // 白鍵の場合：中央に配置
-      return (whiteKeyIndex - 1) * this.keyboardLayout.whiteKeyWidth + this.keyboardLayout.whiteKeyWidth / 2;
-    } else {
-      // 黒鍵の場合：黒鍵描画と同じ位置計算
-      const x = (whiteKeyIndex - 1) * this.keyboardLayout.whiteKeyWidth +
-        this.keyboardLayout.whiteKeyWidth - this.keyboardLayout.blackKeyWidth / 2;
-      // 黒鍵の中央を返す
-      return x + this.keyboardLayout.blackKeyWidth / 2;
-    }
+    return this.keyboardLayoutCalculator.getNoteXPosition(pitch, this.keyboardLayout);
   }
 
   /**
    * ユーティリティ: 黒鍵かどうかを判定
    */
   private isBlackKey(pitch: number): boolean {
-    const noteInOctave = pitch % 12;
-    return this.keyboardLayout.blackKeys.includes(noteInOctave);
+    return this.keyboardLayoutCalculator.isBlackKey(pitch);
   }
 
   /**
