@@ -1,5 +1,6 @@
 import { GameState, GamePhase, Note, ScoreResult, Memo } from '../types/index.js';
 import { KeyboardLayoutCalculator, KeyboardLayout } from '../utils/KeyboardLayoutCalculator.js';
+import { NotePositionCalculator } from '../utils/NotePositionCalculator.js';
 
 /**
  * Canvas APIを使用したゲーム画面の描画とアニメーション管理
@@ -12,6 +13,8 @@ export class UIRenderer {
 
   // 鍵盤レイアウト計算機
   private keyboardLayoutCalculator = new KeyboardLayoutCalculator();
+  // ノート位置計算機
+  private notePositionCalculator = new NotePositionCalculator();
 
   // 描画設定
   private readonly colors = {
@@ -264,10 +267,7 @@ export class UIRenderer {
     // 全てのノートを個別に描画（シンプル化）
     notes.forEach(note => {
       // 表示範囲内のノートのみ処理
-      const showTime = note.startTime - 2000;
-      const hideTime = note.startTime + note.duration + 1000;
-
-      if (currentTime >= showTime && currentTime <= hideTime) {
+      if (this.notePositionCalculator.isNoteVisible(currentTime, note)) {
         this.drawSingleNote(note, currentTime, noteAreaHeight);
       }
     });
@@ -418,25 +418,20 @@ export class UIRenderer {
 
     const width = this.canvas.width / window.devicePixelRatio;
 
-    // ノートの高さを事前に計算
-    const isBlackKey = this.isBlackKey(note.pitch);
-    const baseDuration = 500; // 基準となるduration（ミリ秒）- 四分音符
-    const minHeight = 30;     // 最小高さを増加
-    const maxHeight = 150;    // 最大高さを増加
-    const durationRatio = Math.min(note.duration / baseDuration, 4); // 最大4倍まで
-    const noteHeight = Math.max(minHeight, Math.min(maxHeight, minHeight + (durationRatio * 40))); // より大きな差をつける
+    // ノートの高さを計算
+    const noteHeight = this.notePositionCalculator.calculateNoteHeight(note.duration);
 
-    // ノートの表示タイミングを計算
-    const showTime = note.startTime - 2000;
-    const progress = Math.max(0, (currentTime - showTime) / 2000); // 上限を削除してノートが下に流れ続ける
-
-    // ノートの下端がタイミングラインに到達するタイミングで音が鳴るように調整
-    // ノートの上端の位置を計算し、下端がタイミングラインに到達する時に音が鳴る
-    const y = progress * noteAreaHeight - noteHeight;
+    // ノートのY座標を計算
+    const y = this.notePositionCalculator.calculateNoteY(
+      currentTime,
+      note.startTime,
+      noteAreaHeight,
+      noteHeight
+    );
 
     // ノートが画面外に出た場合は描画しない
     const height = this.canvas.height / window.devicePixelRatio;
-    if (y > height) {
+    if (this.notePositionCalculator.isNoteOffScreen(y, height)) {
       return;
     }
 
@@ -448,7 +443,8 @@ export class UIRenderer {
     const state = this.noteStates.get(noteId) || 'pending';
 
     // ノートを描画（durationに応じた高さで）
-    this.drawNote(x, y, note, state, currentTime >= note.startTime, noteHeight);
+    const isActive = this.notePositionCalculator.isNoteActive(currentTime, note.startTime);
+    this.drawNote(x, y, note, state, isActive, noteHeight);
   }
 
 
