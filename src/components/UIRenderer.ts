@@ -319,7 +319,8 @@ export class UIRenderer {
         const y = progress * noteAreaHeight;
 
         // メモが鍵盤エリアに入った場合（タイミングラインを過ぎた場合）は描画しない
-        if (y >= noteAreaHeight) {
+        // または、メモのタイミングを過ぎた場合（currentTime > memo.startTime）も描画しない
+        if (y >= noteAreaHeight || currentTime > memo.startTime) {
           return;
         }
 
