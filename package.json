@@ -4,7 +4,7 @@
   "description": "MIDI対応ピアノ練習用Webアプリケーション",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --outfile=dist/bundle.js --format=iife --platform=browser --target=es2020 --main-fields=module,main && cp src/index.html dist/index.html",
+    "build": "esbuild src/index.ts --bundle --outfile=dist/bundle.js --format=iife --platform=browser --target=es2020 --main-fields=module,main && cp src/index.html dist/index.html && cp sample-song.json dist/sample-song.json",
     "dev": "esbuild src/index.ts --bundle --outfile=dist/bundle.js --format=iife --platform=browser --target=es2020 --watch",
     "serve": "http-server dist --cors",
     "test": "jest"

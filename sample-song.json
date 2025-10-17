@@ -1,0 +1,113 @@
+{
+  "title": "サンプル楽曲 - 基本練習",
+  "bpm": 120,
+  "notes": [
+    {
+      "pitch": 60,
+      "timing": { "beat": 0, "duration": 1 },
+      "velocity": 80
+    },
+    {
+      "pitch": 62,
+      "timing": { "beat": 1, "duration": 1 },
+      "velocity": 90
+    },
+    {
+      "pitch": 64,
+      "timing": { "beat": 2, "duration": 1 },
+      "velocity": 85
+    },
+    {
+      "pitch": 65,
+      "timing": { "beat": 3, "duration": 1 },
+      "velocity": 75
+    },
+    {
+      "pitch": 60,
+      "timing": { "beat": 4, "duration": 2 },
+      "velocity": 80
+    },
+    {
+      "pitch": 64,
+      "timing": { "beat": 4, "duration": 2 },
+      "velocity": 80
+    },
+    {
+      "pitch": 67,
+      "timing": { "beat": 4, "duration": 2 },
+      "velocity": 80
+    },
+    {
+      "pitch": 61,
+      "timing": { "beat": 6, "duration": 0.5 },
+      "velocity": 70
+    },
+    {
+      "pitch": 63,
+      "timing": { "beat": 6.5, "duration": 0.5 },
+      "velocity": 70
+    },
+    {
+      "pitch": 57,
+      "timing": { "beat": 8, "duration": 3 },
+      "velocity": 85
+    },
+    {
+      "pitch": 60,
+      "timing": { "beat": 8, "duration": 3 },
+      "velocity": 85
+    },
+    {
+      "pitch": 64,
+      "timing": { "beat": 8, "duration": 3 },
+      "velocity": 85
+    },
+    {
+      "pitch": 72,
+      "timing": { "beat": 12, "duration": 0.3333333333333333 },
+      "velocity": 80
+    },
+    {
+      "pitch": 74,
+      "timing": { "beat": 12.333333333333334, "duration": 0.3333333333333333 },
+      "velocity": 80
+    },
+    {
+      "pitch": 76,
+      "timing": { "beat": 12.666666666666666, "duration": 0.3333333333333333 },
+      "velocity": 80
+    }
+  ],
+  "memos": [
+    {
+      "timing": { "beat": 0 },
+      "text": "Cメジャースケール",
+      "align": "center",
+      "color": "blue"
+    },
+    {
+      "timing": { "beat": 4 },
+      "text": "Cメジャーコード",
+      "align": "left",
+      "color": "green"
+    },
+    {
+      "timing": { "beat": 6 },
+      "text": "黒鍵 (C#, D#)",
+      "align": "right",
+      "color": "purple"
+    },
+    {
+      "timing": { "beat": 8 },
+      "text": "Amコード",
+      "align": "center",
+      "color": "orange"
+    },
+    {
+      "timing": { "beat": 12 },
+      "text": "3連符",
+      "align": "left",
+      "color": "pink"
+    }
+  ]
+}

@@ -217,7 +217,7 @@ export class PianoPracticeApp {
         console.log('楽曲データを読み込みました:', songTitle || '無題', `(BPM: ${songBPM || 120})`);
       } else {
         // デフォルトのサンプルノートを使用
-        this.loadSampleNotes();
+        await this.loadSampleNotes();
         console.log('デフォルトのサンプル楽曲を使用します');
       }
 
@@ -225,7 +225,7 @@ export class PianoPracticeApp {
       console.error('楽曲データの読み込みに失敗:', error);
 
       // エラー時はデフォルトのサンプルノートを使用
-      this.loadSampleNotes();
+      await this.loadSampleNotes();
 
       // ユーザーフレンドリーなメッセージを表示
       const errorMessage = error instanceof Error ? error.message : '楽曲データの読み込みに失敗しました';
@@ -660,49 +660,52 @@ export class PianoPracticeApp {
   }
 
   /**
-   * テスト用のサンプルノートを読み込み（音楽的タイミングベース）
+   * テスト用のサンプルノートを読み込み（JSONファイルから）
    */
-  private loadSampleNotes(): void {
-    // 音楽的ノートを定義（拍ベース）
-    this.musicalNotes = [
-      // 単音のメロディー（4拍子）
-      { pitch: 60, timing: { beat: 0, duration: 1 }, velocity: 80 },    // C4: 0拍目
-      { pitch: 62, timing: { beat: 1, duration: 1 }, velocity: 90 },    // D4: 1拍目
-      { pitch: 64, timing: { beat: 2, duration: 1 }, velocity: 85 },    // E4: 2拍目
-      { pitch: 65, timing: { beat: 3, duration: 1 }, velocity: 75 },    // F4: 3拍目
+  private async loadSampleNotes(): Promise<void> {
+    try {
+      // sample-song.jsonをフェッチ
+      const response = await fetch('sample-song.json');
+      if (!response.ok) {
+        throw new Error(`サンプル楽曲ファイルの読み込みに失敗: ${response.statusText}`);
+      }
 
-      // コード（和音）のテスト - Cメジャーコード
-      { pitch: 60, timing: { beat: 4, duration: 2 }, velocity: 80 }, // C4
-      { pitch: 64, timing: { beat: 4, duration: 2 }, velocity: 80 }, // E4
-      { pitch: 67, timing: { beat: 4, duration: 2 }, velocity: 80 }, // G4
+      const blob = await response.blob();
+      const file = new File([blob], 'sample-song.json', { type: 'application/json' });
 
-      // 黒鍵のテスト
-      { pitch: 61, timing: { beat: 6, duration: 0.5 }, velocity: 70 },   // C#4: 6拍目（八分音符）
-      { pitch: 63, timing: { beat: 6.5, duration: 0.5 }, velocity: 70 }, // D#4: 6.5拍目（八分音符）
+      // ContentLoaderのloadFromFileを使用（既存の処理を再利用）
+      const songData = await this.contentLoader.loadFromFile(file);
 
-      // より複雑なコード - Amコード
-      { pitch: 57, timing: { beat: 8, duration: 3 }, velocity: 85 }, // A3
-      { pitch: 60, timing: { beat: 8, duration: 3 }, velocity: 85 }, // C4
-      { pitch: 64, timing: { beat: 8, duration: 3 }, velocity: 85 }, // E4
+      // 楽曲データを設定
+      this.musicalNotes = songData.notes;
+      this.musicalMemos = songData.memos || [];
 
-      // 3連符のテスト
-      { pitch: 72, timing: { beat: 12, duration: 1 / 3 }, velocity: 80 },     // C5: 12拍目（3連符1つ目）
-      { pitch: 74, timing: { beat: 12 + 1 / 3, duration: 1 / 3 }, velocity: 80 }, // D5: 3連符2つ目
-      { pitch: 76, timing: { beat: 12 + 2 / 3, duration: 1 / 3 }, velocity: 80 }, // E5: 3連符3つ目
-    ];
+      // JSONデータからBPMとタイトルを取得
+      const jsonText = await blob.text();
+      const jsonData = JSON.parse(jsonText);
 
-    // メモのサンプルを定義（拍ベース）
-    this.musicalMemos = [
-      { timing: { beat: 0 }, text: 'Cメジャースケール', align: 'center', color: 'blue' },
-      { timing: { beat: 4 }, text: 'Cメジャーコード', align: 'left', color: 'green' },
-      { timing: { beat: 6 }, text: '黒鍵 (C#, D#)', align: 'right', color: 'purple' },
-      { timing: { beat: 8 }, text: 'Amコード', align: 'center', color: 'orange' },
-      { timing: { beat: 12 }, text: '3連符', align: 'left', color: 'pink' },
-    ];
+      // BPMを設定
+      if (jsonData.bpm) {
+        this.setBPM(jsonData.bpm);
+      }
 
-    // ノートの変換はゲーム開始時に行う
+      // タイトルを表示に反映
+      if (jsonData.title) {
+        this.updateSongTitle(jsonData.title);
+      }
 
-
+      console.log('サンプル楽曲を読み込みました:', jsonData.title || 'サンプル楽曲');
+    } catch (error) {
+      console.error('サンプル楽曲の読み込みに失敗:', error);
+      // フォールバック: 最低限のノートを設定
+      this.musicalNotes = [
+        { pitch: 60, timing: { beat: 0, duration: 1 }, velocity: 80 },
+        { pitch: 62, timing: { beat: 1, duration: 1 }, velocity: 80 },
+        { pitch: 64, timing: { beat: 2, duration: 1 }, velocity: 80 },
+      ];
+      this.musicalMemos = [];
+      this.updateSongTitle('基本練習');
+    }
   }
 
   /**
