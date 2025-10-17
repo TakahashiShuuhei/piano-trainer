@@ -309,12 +309,15 @@ export class PianoPracticeApp {
     this.countdownStartTime = Date.now();
     let countdownValue = 4;
 
+    // 最初の4のbeepを即座に再生
+    this.audioFeedbackManager.playCountdownBeep(4);
+
     const countdownInterval = setInterval(() => {
       const elapsed = Date.now() - this.countdownStartTime;
       const beatDuration = 60000 / this.currentBPM; // 1拍の長さ（ミリ秒）
       const expectedCount = 4 - Math.floor(elapsed / beatDuration);
 
-      if (expectedCount !== countdownValue && expectedCount >= 0) {
+      if (expectedCount !== countdownValue && expectedCount >= 1) {
         countdownValue = expectedCount;
         this.currentGameState.countdownValue = countdownValue;
 
