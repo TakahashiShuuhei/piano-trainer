@@ -1245,6 +1245,8 @@ export class PianoPracticeApp {
     const setPointA = document.getElementById('setPointA');
     const setPointB = document.getElementById('setPointB');
     const clearRepeatPoints = document.getElementById('clearRepeatPoints');
+    const pointAInput = document.getElementById('pointAInput') as HTMLInputElement;
+    const pointBInput = document.getElementById('pointBInput') as HTMLInputElement;
 
     if (partialRepeatEnabled) {
       partialRepeatEnabled.addEventListener('change', () => {
@@ -1269,6 +1271,25 @@ export class PianoPracticeApp {
         this.clearRepeatPoints();
       });
     }
+
+    // 入力フィールドの変更イベント
+    if (pointAInput) {
+      pointAInput.addEventListener('change', () => {
+        const value = parseFloat(pointAInput.value);
+        if (!isNaN(value) && value >= 0) {
+          this.repeatStartBeat = value;
+        }
+      });
+    }
+
+    if (pointBInput) {
+      pointBInput.addEventListener('change', () => {
+        const value = parseFloat(pointBInput.value);
+        if (!isNaN(value) && value >= 0) {
+          this.repeatEndBeat = value;
+        }
+      });
+    }
   }
 
   /**
@@ -1284,23 +1305,23 @@ export class PianoPracticeApp {
 
     if (type === 'start') {
       this.repeatStartBeat = currentPosition;
-      const display = document.getElementById('pointADisplay');
-      if (display) {
-        display.textContent = currentPosition.toFixed(1);
+      const input = document.getElementById('pointAInput') as HTMLInputElement;
+      if (input) {
+        input.value = currentPosition.toFixed(1);
         // アニメーションを適用
-        display.classList.remove('repeat-point-highlight');
-        void display.offsetWidth; // リフロー強制でアニメーションをリスタート
-        display.classList.add('repeat-point-highlight');
+        input.classList.remove('repeat-point-highlight');
+        void input.offsetWidth; // リフロー強制でアニメーションをリスタート
+        input.classList.add('repeat-point-highlight');
       }
     } else {
       this.repeatEndBeat = currentPosition;
-      const display = document.getElementById('pointBDisplay');
-      if (display) {
-        display.textContent = currentPosition.toFixed(1);
+      const input = document.getElementById('pointBInput') as HTMLInputElement;
+      if (input) {
+        input.value = currentPosition.toFixed(1);
         // アニメーションを適用
-        display.classList.remove('repeat-point-highlight');
-        void display.offsetWidth; // リフロー強制でアニメーションをリスタート
-        display.classList.add('repeat-point-highlight');
+        input.classList.remove('repeat-point-highlight');
+        void input.offsetWidth; // リフロー強制でアニメーションをリスタート
+        input.classList.add('repeat-point-highlight');
       }
     }
   }
@@ -1312,15 +1333,15 @@ export class PianoPracticeApp {
     this.repeatStartBeat = null;
     this.repeatEndBeat = null;
 
-    const pointADisplay = document.getElementById('pointADisplay');
-    const pointBDisplay = document.getElementById('pointBDisplay');
-    if (pointADisplay) {
-      pointADisplay.textContent = '未設定';
-      pointADisplay.classList.remove('repeat-point-highlight');
+    const pointAInput = document.getElementById('pointAInput') as HTMLInputElement;
+    const pointBInput = document.getElementById('pointBInput') as HTMLInputElement;
+    if (pointAInput) {
+      pointAInput.value = '';
+      pointAInput.classList.remove('repeat-point-highlight');
     }
-    if (pointBDisplay) {
-      pointBDisplay.textContent = '未設定';
-      pointBDisplay.classList.remove('repeat-point-highlight');
+    if (pointBInput) {
+      pointBInput.value = '';
+      pointBInput.classList.remove('repeat-point-highlight');
     }
   }
 
