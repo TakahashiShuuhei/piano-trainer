@@ -1331,6 +1331,11 @@ export class PianoPracticeApp {
 
     // 最後のノートの終了位置を計算
     const lastNote = this.currentNotes[this.currentNotes.length - 1];
+    if (!lastNote) {
+      this.showError('楽曲データが正しく読み込まれていません');
+      return;
+    }
+
     const lastNoteBeat = this.beatTimeConverter.msToBeats(lastNote.startTime + lastNote.duration);
 
     this.repeatEndBeat = lastNoteBeat;
