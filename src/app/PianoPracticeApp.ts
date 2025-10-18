@@ -1062,8 +1062,10 @@ export class PianoPracticeApp {
 
     // 部分リピートが有効な場合
     if (this.isPartialRepeatEnabled && this.repeatStartBeat !== null && this.repeatEndBeat !== null) {
-      // 終了位置を超えたら開始位置にシーク
-      if (currentPosition >= this.repeatEndBeat) {
+      // 終了位置を超えたら開始位置にシーク（半開区間 [start, end) ）
+      // 微小な値を引いて、終了位置の音が鳴らないようにする
+      const epsilon = 0.01; // 0.01拍 = 約5ms @ 120BPM
+      if (currentPosition >= this.repeatEndBeat - epsilon) {
         // 開始位置にシーク
         this.musicalTimeManager.seekToMusicalPosition(this.repeatStartBeat);
 
