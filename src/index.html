@@ -27,7 +27,7 @@
             position: relative;
             margin-bottom: 20px;
         }
-        
+
         #gameCanvas {
             border: 2px solid #333;
             border-radius: 8px;
@@ -37,6 +37,15 @@
             width: 100%;
             max-width: 1200px;
             height: 400px;
+        }
+
+        .song-title {
+            text-align: right;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 4px;
+            margin-bottom: 0;
         }
         
         .controls {
@@ -228,8 +237,54 @@
         /* 参考画像表示エリア */
         .reference-image-area {
             max-width: 1200px;
-            margin: 20px auto;
+            margin: 10px auto 20px;
+        }
+
+        .reference-image-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+
+        .reference-image-toggle:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+
+        .toggle-icon {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            transition: transform 0.2s ease;
+        }
+
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .toggle-label {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .reference-image-content {
+            margin-top: 10px;
             text-align: center;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .reference-image-content.collapsed {
+            max-height: 0;
+        }
+
+        .reference-image-content.expanded {
+            max-height: 2000px;
         }
 
         .reference-image-area img {
@@ -243,10 +298,6 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🎹 Piano Practice App</h1>
-        </div>
-        
         <div class="error-message" id="errorMessage"></div>
         
         <!-- 結果表示エリア -->
@@ -260,6 +311,18 @@
         
         <div class="game-area">
             <canvas id="gameCanvas"></canvas>
+        </div>
+        <div class="song-title" id="songTitle">Piano Practice App</div>
+
+        <!-- 参考画像表示エリア -->
+        <div class="reference-image-area" id="referenceImageArea" style="display: none;">
+            <div class="reference-image-toggle" id="referenceImageToggle">
+                <span class="toggle-icon" id="toggleIcon">▶</span>
+                <span class="toggle-label">参考画像を表示</span>
+            </div>
+            <div class="reference-image-content collapsed" id="referenceImageContent">
+                <img id="referenceImage" src="" alt="参考画像">
+            </div>
         </div>
         
         <div class="controls">
@@ -344,11 +407,6 @@
                     <span id="volumeDisplay" style="color: white; font-weight: bold;">60%</span>
                 </div>
             </div>
-        </div>
-
-        <!-- 参考画像表示エリア -->
-        <div class="reference-image-area" id="referenceImageArea" style="display: none;">
-            <img id="referenceImage" src="" alt="参考画像">
         </div>
     </div>
 

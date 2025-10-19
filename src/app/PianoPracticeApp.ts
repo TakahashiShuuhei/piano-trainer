@@ -187,6 +187,9 @@ export class PianoPracticeApp {
 
     // リピート練習コントロール
     this.setupPartialRepeatControls();
+
+    // 参考画像トグルコントロール
+    this.setupReferenceImageToggle();
   }
 
   private async loadInitialContent(): Promise<void> {
@@ -241,9 +244,9 @@ export class PianoPracticeApp {
    * 楽曲タイトルをUIに反映
    */
   private updateSongTitle(title: string): void {
-    const headerElement = document.querySelector('.header h1');
-    if (headerElement) {
-      headerElement.textContent = `🎹 ${title}`;
+    const titleElement = document.getElementById('songTitle');
+    if (titleElement) {
+      titleElement.textContent = title;
     }
   }
 
@@ -1407,6 +1410,35 @@ export class PianoPracticeApp {
   }
 
 
+
+  /**
+   * 参考画像トグルコントロールを設定
+   */
+  private setupReferenceImageToggle(): void {
+    const toggleButton = document.getElementById('referenceImageToggle');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const imageContent = document.getElementById('referenceImageContent');
+
+    if (toggleButton && toggleIcon && imageContent) {
+      toggleButton.addEventListener('click', () => {
+        const isExpanded = imageContent.classList.contains('expanded');
+
+        if (isExpanded) {
+          // 折りたたむ
+          imageContent.classList.remove('expanded');
+          imageContent.classList.add('collapsed');
+          toggleIcon.classList.remove('expanded');
+          toggleIcon.textContent = '▶';
+        } else {
+          // 展開する
+          imageContent.classList.remove('collapsed');
+          imageContent.classList.add('expanded');
+          toggleIcon.classList.add('expanded');
+          toggleIcon.textContent = '▼';
+        }
+      });
+    }
+  }
 
   /**
    * デバッグ用：音楽的時間管理の状態を取得
