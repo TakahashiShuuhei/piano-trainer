@@ -34,6 +34,7 @@ export interface SongData {
   bpm?: number;        // デフォルト: 120
   notes: SongNote[];
   memos?: SongMemo[];  // オプション: 楽曲中のメモ・アノテーション
+  referenceImageUrl?: string;  // オプション: 参考画像のURL
 }
 
 export interface SongNote {

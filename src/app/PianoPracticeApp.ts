@@ -211,6 +211,13 @@ export class PianoPracticeApp {
           this.updateSongTitle(songTitle);
         }
 
+        // 参考画像を表示
+        if (songData.referenceImageUrl) {
+          this.updateReferenceImage(songData.referenceImageUrl);
+        } else {
+          this.hideReferenceImage();
+        }
+
         console.log('楽曲データを読み込みました:', songTitle || '無題', `(BPM: ${songBPM || 120})`);
       } else {
         // デフォルトのサンプルノートを使用
@@ -237,6 +244,30 @@ export class PianoPracticeApp {
     const headerElement = document.querySelector('.header h1');
     if (headerElement) {
       headerElement.textContent = `🎹 ${title}`;
+    }
+  }
+
+  /**
+   * 参考画像を表示
+   */
+  private updateReferenceImage(imageUrl: string): void {
+    const imageArea = document.getElementById('referenceImageArea');
+    const imageElement = document.getElementById('referenceImage') as HTMLImageElement;
+
+    if (imageArea && imageElement) {
+      imageElement.src = imageUrl;
+      imageArea.style.display = 'block';
+    }
+  }
+
+  /**
+   * 参考画像を非表示
+   */
+  private hideReferenceImage(): void {
+    const imageArea = document.getElementById('referenceImageArea');
+
+    if (imageArea) {
+      imageArea.style.display = 'none';
     }
   }
 
@@ -269,6 +300,13 @@ export class PianoPracticeApp {
           // BPMを更新
           if (jsonData.bpm) {
             this.setBPM(jsonData.bpm);
+          }
+
+          // 参考画像を更新
+          if (jsonData.referenceImageUrl) {
+            this.updateReferenceImage(jsonData.referenceImageUrl);
+          } else {
+            this.hideReferenceImage();
           }
 
           console.log('楽曲ファイルを読み込みました:', jsonData.title || '無題', `(BPM: ${jsonData.bpm || 120})`);

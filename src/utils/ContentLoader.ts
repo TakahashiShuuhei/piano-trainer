@@ -8,7 +8,7 @@ export class ContentLoader {
   /**
    * URLパラメータから楽曲データを読み込み
    */
-  public async loadFromURL(): Promise<{ notes: MusicalNote[], memos: SongMemo[] } | null> {
+  public async loadFromURL(): Promise<{ notes: MusicalNote[], memos: SongMemo[], referenceImageUrl?: string } | null> {
     const urlParams = new URLSearchParams(window.location.search);
 
     // 外部JSONファイルのURL指定
@@ -29,7 +29,7 @@ export class ContentLoader {
   /**
    * ローカルファイルから楽曲データを読み込み
    */
-  public async loadFromFile(file: File): Promise<{ notes: MusicalNote[], memos: SongMemo[] }> {
+  public async loadFromFile(file: File): Promise<{ notes: MusicalNote[], memos: SongMemo[], referenceImageUrl?: string }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
@@ -38,7 +38,7 @@ export class ContentLoader {
           const jsonString = event.target?.result as string;
           const jsonData = JSON.parse(jsonString);
           const result = this.processSongData(jsonData);
-          resolve({ notes: result.notes, memos: result.memos });
+          resolve({ notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl });
         } catch (error) {
           reject(new Error('ファイルの読み込みに失敗しました'));
         }
@@ -55,7 +55,7 @@ export class ContentLoader {
   /**
    * 外部URLからJSONファイルを読み込み
    */
-  private async loadFromExternalURL(url: string): Promise<{ notes: MusicalNote[], memos: SongMemo[] }> {
+  private async loadFromExternalURL(url: string): Promise<{ notes: MusicalNote[], memos: SongMemo[], referenceImageUrl?: string }> {
     try {
       // CORSプロキシを使用する場合のオプション
       const corsProxyUrl = this.shouldUseCorsProxy(url) ? `https://cors-anywhere.herokuapp.com/${url}` : url;
@@ -68,7 +68,7 @@ export class ContentLoader {
 
       const jsonData = await response.json();
       const result = this.processSongData(jsonData);
-      return { notes: result.notes, memos: result.memos };
+      return { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl };
 
     } catch (error) {
       console.error('Failed to load song from URL:', error);
@@ -99,13 +99,13 @@ export class ContentLoader {
   /**
    * Base64エンコードされたJSONデータを読み込み
    */
-  private loadFromBase64(base64Data: string): { notes: MusicalNote[], memos: SongMemo[] } {
+  private loadFromBase64(base64Data: string): { notes: MusicalNote[], memos: SongMemo[], referenceImageUrl?: string } {
     try {
       // UTF-8対応のBase64デコード
       const jsonString = this.decodeBase64UTF8(base64Data);
       const jsonData = JSON.parse(jsonString);
       const result = this.processSongData(jsonData);
-      return { notes: result.notes, memos: result.memos };
+      return { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl };
 
     } catch (error) {
       console.error('Failed to decode base64 data:', error);
@@ -139,7 +139,7 @@ export class ContentLoader {
   /**
    * SongDataをMusicalNoteに変換し、バリデーションを実行
    */
-  private processSongData(data: any): { notes: MusicalNote[], memos: SongMemo[] } {
+  private processSongData(data: any): { notes: MusicalNote[], memos: SongMemo[], referenceImageUrl?: string } {
     // バリデーション
     const songData = this.validateSongData(data);
 
@@ -154,7 +154,10 @@ export class ContentLoader {
     // memosを取得（存在しない場合は空配列）
     const memos = songData.memos || [];
 
-    return { notes, memos };
+    // referenceImageUrlを取得（存在しない場合はundefined）
+    const referenceImageUrl = songData.referenceImageUrl;
+
+    return { notes, memos, referenceImageUrl };
   }
   
   /**
@@ -201,7 +204,8 @@ export class ContentLoader {
       title: data.title,
       bpm: data.bpm || 120, // デフォルト値
       notes: data.notes,
-      memos: data.memos
+      memos: data.memos,
+      referenceImageUrl: data.referenceImageUrl
     };
   }
   
