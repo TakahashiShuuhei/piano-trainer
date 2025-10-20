@@ -597,14 +597,10 @@ export class PianoPracticeApp {
       // ScoreEvaluatorで評価
       const evaluation = this.scoreEvaluator.evaluateInput(note, this.currentGameState.currentTime, this.currentNotes);
 
-      // 音声フィードバックを再生
-      if (evaluation.isHit) {
-        // 正解時：押したノートの音程を短く再生
-        this.audioFeedbackManager.playNoteSound(note, 0.2);
-
-      } else {
-
-      }
+      // 音声フィードバックは無効化（キーボードから音が出るため）
+      // if (evaluation.isHit) {
+      //   this.audioFeedbackManager.playNoteSound(note, 0.2);
+      // }
 
       // スコア表示を更新
       const scoreInfo = this.scoreEvaluator.getScore();
