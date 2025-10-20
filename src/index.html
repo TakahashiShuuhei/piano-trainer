@@ -389,6 +389,20 @@
                 </div>
             </div>
 
+            <!-- ゲームモード選択 -->
+            <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+                <div class="game-mode-controls" style="display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
+                    <label for="gameModeSelect" style="color: white; font-weight: bold;">演奏モード:</label>
+                    <select id="gameModeSelect" style="font-size: 14px; padding: 8px 12px; min-width: 180px;">
+                        <option value="realtime">通常モード（リアルタイム）</option>
+                        <option value="wait-for-input">練習モード（押すまで待機）</option>
+                    </select>
+                    <span style="color: #9ca3af; font-size: 12px; max-width: 300px;">
+                        練習モードでは正しい鍵盤を押すまで進行が停止します
+                    </span>
+                </div>
+            </div>
+
             <!-- BPMと音量調整を横並び -->
             <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 15px; flex-wrap: wrap;">
                 <!-- BPM調整 -->

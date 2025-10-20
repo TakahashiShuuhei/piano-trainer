@@ -9,7 +9,10 @@ import {
   MusicalNote,
   SongMemo,
   Memo,
-  BeatTimeConverter as IBeatTimeConverter
+  BeatTimeConverter as IBeatTimeConverter,
+  GameMode,
+  GameSettings,
+  WaitForInputState
 } from '../types/index.js';
 import { MIDIInputManager } from '../components/MIDIInputManager';
 import { UIRenderer } from '../components/UIRenderer';
@@ -22,6 +25,11 @@ import { TimeFormatter } from '../utils/TimeFormatter';
 import { KeyboardNoteMapper } from '../utils/KeyboardNoteMapper';
 
 export class PianoPracticeApp {
+  // Wait-for-input mode timing constants
+  private static readonly WAIT_THRESHOLD_MS = 50; // Enter waiting state 50ms before note
+  private static readonly LOOK_AHEAD_MS = 100; // Look ahead window for finding next notes
+  private static readonly SCHEDULED_NOTE_TOLERANCE_MS = 50; // Tolerance for auto-playing notes
+
   private scoreEvaluator!: ScoreEvaluator;
   private midiManager!: IMIDIInputManager;
   private uiRenderer!: IUIRenderer;
@@ -59,6 +67,18 @@ export class PianoPracticeApp {
   private musicalMemos: SongMemo[] = [];
   // 現在表示中のメモ（時間ベース、UIRenderer用）
   private currentMemos: Memo[] = [];
+
+  // Game mode settings
+  private gameSettings: GameSettings = {
+    gameMode: 'realtime' // Default to real-time mode
+  };
+
+  // Wait-for-input mode state
+  private waitForInputState: WaitForInputState | null = null;
+  // Track pitches from previous timing for re-press detection (C C problem)
+  private lastTimingPitches: Set<number> = new Set();
+  // Track which note timings we've already waited for (to avoid re-entering waiting state)
+  private processedWaitTimings: Set<number> = new Set();
 
   constructor() {
     // コンストラクタは軽量に保つ
@@ -190,6 +210,9 @@ export class PianoPracticeApp {
 
     // 参考画像トグルコントロール
     this.setupReferenceImageToggle();
+
+    // ゲームモード選択コントロール
+    this.setupGameModeControls();
   }
 
   private async loadInitialContent(): Promise<void> {
@@ -399,6 +422,11 @@ export class PianoPracticeApp {
     this.currentGameState.accuracy = 1.0;
     this.currentGameState.totalNotes = 0;
 
+    // Wait-for-input mode state をリセット
+    this.waitForInputState = null;
+    this.lastTimingPitches.clear();
+    this.processedWaitTimings.clear();
+
     // カウントダウンを開始
     this.startCountdown();
   }
@@ -524,6 +552,11 @@ export class PianoPracticeApp {
     // 再生済みノートをクリア
     this.playedNotes.clear();
 
+    // Wait-for-input mode state をクリア
+    this.waitForInputState = null;
+    this.lastTimingPitches.clear();
+    this.processedWaitTimings.clear();
+
     this.updateGameStateDisplay();
   }
 
@@ -597,10 +630,17 @@ export class PianoPracticeApp {
       // ScoreEvaluatorで評価
       const evaluation = this.scoreEvaluator.evaluateInput(note, this.currentGameState.currentTime, this.currentNotes);
 
-      // 音声フィードバックは無効化（キーボードから音が出るため）
-      // if (evaluation.isHit) {
-      //   this.audioFeedbackManager.playNoteSound(note, 0.2);
-      // }
+      // Wait-for-input mode: Play sound when user presses correct key
+      if (this.gameSettings.gameMode === 'wait-for-input' && evaluation.isHit && evaluation.hitNoteIndex !== undefined) {
+        // Boundary check for safety
+        if (evaluation.hitNoteIndex < this.currentNotes.length) {
+          const hitNote = this.currentNotes[evaluation.hitNoteIndex];
+          this.audioFeedbackManager.playNoteSound(
+            hitNote.pitch,
+            hitNote.duration / 1000
+          );
+        }
+      }
 
       // スコア表示を更新
       const scoreInfo = this.scoreEvaluator.getScore();
@@ -609,11 +649,21 @@ export class PianoPracticeApp {
       this.currentGameState.totalNotes = scoreInfo.total;
       this.updateGameStateDisplay();
     }
+
+    // Wait-for-input mode: Handle input in waiting state
+    if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+      this.handleNoteOnInWaitMode(note);
+    }
   }
 
   private handleNoteOff(note: number, toneTime: number): void {
     // 鍵盤のハイライトを終了
     this.uiRenderer.setKeyPressed(note, false);
+
+    // Wait-for-input mode: Handle note release
+    if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+      this.handleNoteOffInWaitMode(note);
+    }
   }
 
   /**
@@ -640,8 +690,21 @@ export class PianoPracticeApp {
         // 演奏ガイドを更新
         this.updatePlayingGuide();
 
+        // Wait-for-input mode: Check if we should enter waiting state
+        if (this.gameSettings.gameMode === 'wait-for-input') {
+          this.checkShouldEnterWaitingState();
+        }
+
         // 楽曲終了チェック（ループ対応）
         this.checkSongEnd();
+      }
+
+      // Wait-for-input mode: Update current time and guide even when waiting
+      if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT && this.musicalTimeManager.isStarted()) {
+        this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
+
+        // Update playing guide to show required notes
+        this.updatePlayingGuide();
       }
 
       // UIRendererで画面を描画
@@ -913,7 +976,8 @@ export class PianoPracticeApp {
     const totalDuration = lastNote.startTime + lastNote.duration;
     this.musicalTimeManager.setProgress(progress, totalDuration);
 
-
+    // Reset wait-for-input state when seeking
+    this.resetWaitForInputState();
   }
 
   /**
@@ -922,6 +986,24 @@ export class PianoPracticeApp {
   public seekToMusicalPosition(beats: number): void {
     this.musicalTimeManager.seekToMusicalPosition(beats);
 
+    // Reset wait-for-input state when seeking
+    this.resetWaitForInputState();
+  }
+
+  /**
+   * Reset wait-for-input mode state (when seeking or mode switching)
+   */
+  private resetWaitForInputState(): void {
+    // If currently waiting, unfreeze time
+    if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+      this.musicalTimeManager.unfreezeTime();
+      this.currentGameState.phase = GamePhase.PLAYING;
+    }
+
+    // Clear wait state
+    this.waitForInputState = null;
+    this.lastTimingPitches.clear();
+    this.processedWaitTimings.clear();
   }
 
   // 既に再生したノートを追跡
@@ -937,6 +1019,13 @@ export class PianoPracticeApp {
    */
   private updatePlayingGuide(): void {
     const currentTime = this.currentGameState.currentTime;
+
+    // Wait-for-input mode: Show required notes from waiting state
+    if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT && this.waitForInputState) {
+      const requiredKeys = Array.from(this.waitForInputState.requiredNotes);
+      this.uiRenderer.setCurrentTargetKeys(requiredKeys);
+      return;
+    }
 
     // 現在演奏中のノート（開始時刻から終了時刻まで）
     const activeNotes = this.currentNotes.filter(note => {
@@ -970,7 +1059,12 @@ export class PianoPracticeApp {
    * 楽譜のノートを指定されたタイミングで自動再生
    */
   private playScheduledNotes(currentTime: number): void {
-    const tolerance = 50; // 50ms の許容範囲
+    // Wait-for-input mode: Don't auto-play notes
+    if (this.gameSettings.gameMode === 'wait-for-input') {
+      return;
+    }
+
+    const tolerance = PianoPracticeApp.SCHEDULED_NOTE_TOLERANCE_MS;
 
     this.currentNotes.forEach(note => {
       const noteId = `${note.pitch}-${note.startTime}`;
@@ -1117,6 +1211,9 @@ export class PianoPracticeApp {
 
         // 演奏ガイドをクリア
         this.uiRenderer.clearTargetKeys();
+
+        // Reset wait-for-input state when repeating
+        this.resetWaitForInputState();
       }
       return;
     }
@@ -1434,6 +1531,229 @@ export class PianoPracticeApp {
         }
       });
     }
+  }
+
+  /**
+   * ゲームモード選択コントロールを設定
+   */
+  private setupGameModeControls(): void {
+    const gameModeSelect = document.getElementById('gameModeSelect') as HTMLSelectElement;
+
+    if (gameModeSelect) {
+      gameModeSelect.addEventListener('change', (event) => {
+        const mode = (event.target as HTMLSelectElement).value as GameMode;
+        this.setGameMode(mode);
+      });
+
+      // 初期値を設定
+      gameModeSelect.value = this.gameSettings.gameMode;
+    }
+  }
+
+  /**
+   * ゲームモードを設定
+   */
+  private setGameMode(mode: GameMode): void {
+    this.gameSettings.gameMode = mode;
+
+    // If switching to realtime mode while waiting, unfreeze time
+    if (mode === 'realtime' && this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+      this.musicalTimeManager.unfreezeTime();
+      this.currentGameState.phase = GamePhase.PLAYING;
+      this.waitForInputState = null;
+    }
+
+    // If switching to wait-for-input mode, reset processed timings
+    if (mode === 'wait-for-input') {
+      this.processedWaitTimings.clear();
+      this.lastTimingPitches.clear();
+    }
+  }
+
+  /**
+   * 現在のゲームモードを取得
+   */
+  public getGameMode(): GameMode {
+    return this.gameSettings.gameMode;
+  }
+
+  // ========================================
+  // Wait-for-input mode methods
+  // ========================================
+
+  /**
+   * Check if we should enter waiting state for next note
+   */
+  private checkShouldEnterWaitingState(): void {
+    // Already waiting
+    if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+      return;
+    }
+
+    const currentTime = this.currentGameState.currentTime;
+    const nextGroup = this.findNextNoteGroup(currentTime);
+
+    if (nextGroup.length === 0) {
+      return; // No more notes
+    }
+
+    const nextStartTime = nextGroup[0].startTime;
+
+    // Enter waiting state slightly before the note
+    // This ensures we catch the note timing accurately
+    if (currentTime >= nextStartTime - PianoPracticeApp.WAIT_THRESHOLD_MS) {
+      this.enterWaitingState(nextGroup);
+    }
+  }
+
+  /**
+   * Find the next group of notes (notes with same startTime)
+   * Looks for notes that haven't been processed yet
+   */
+  private findNextNoteGroup(currentTime: number): Note[] {
+    // Find notes that haven't been processed yet
+    // We look ahead slightly to catch notes before they pass
+    const futureNotes = this.currentNotes
+      .filter(note => {
+        // Only consider notes that we haven't processed yet
+        // and that haven't passed by too much
+        return note.startTime >= currentTime - PianoPracticeApp.LOOK_AHEAD_MS &&
+               !this.processedWaitTimings.has(note.startTime);
+      })
+      .sort((a, b) => a.startTime - b.startTime);
+
+    if (futureNotes.length === 0) {
+      return [];
+    }
+
+    const nextStartTime = futureNotes[0].startTime;
+
+    // Get all notes with the same startTime (chord)
+    return futureNotes.filter(note => note.startTime === nextStartTime);
+  }
+
+  /**
+   * Enter waiting state for a group of notes
+   */
+  private enterWaitingState(noteGroup: Note[]): void {
+    const startTime = noteGroup[0].startTime;
+
+    // Mark this timing as processed so we don't re-enter waiting state for it
+    this.processedWaitTimings.add(startTime);
+
+    this.waitForInputState = {
+      requiredNotes: new Set(noteGroup.map(n => n.pitch)),
+      pressedNotesForCurrentTiming: new Set(),
+      currentTimingNotes: noteGroup,
+      nextNoteStartTime: startTime,
+      waitingStartTime: this.currentGameState.currentTime,
+      lastInputPitches: new Set(this.lastTimingPitches) // Use saved pitches from previous timing
+    };
+
+    // Freeze time at the note's start time (not current time which might be slightly past)
+    this.musicalTimeManager.freezeTimeAt(startTime);
+    this.currentGameState.phase = GamePhase.WAITING_FOR_INPUT;
+
+    // Update playing guide immediately to show required keys
+    const requiredKeys = Array.from(this.waitForInputState.requiredNotes);
+    this.uiRenderer.setCurrentTargetKeys(requiredKeys);
+  }
+
+  /**
+   * Exit waiting state and resume playback
+   */
+  private exitWaitingState(): void {
+    if (!this.waitForInputState) return;
+
+    // Save pressed notes for next timing (for re-press detection)
+    this.lastTimingPitches = new Set(this.waitForInputState.pressedNotesForCurrentTiming);
+
+    // Unfreeze time and resume playback
+    this.musicalTimeManager.unfreezeTime();
+    this.currentGameState.phase = GamePhase.PLAYING;
+
+    // Reset state
+    this.waitForInputState = null;
+
+    // Update playing guide for the next active notes
+    // This will be called in the next render loop, so we don't need to do it here
+  }
+
+  /**
+   * Check if all required notes have been pressed
+   */
+  private isAllRequiredNotesPressed(): boolean {
+    if (!this.waitForInputState) return false;
+
+    for (const requiredNote of this.waitForInputState.requiredNotes) {
+      if (!this.waitForInputState.pressedNotesForCurrentTiming.has(requiredNote)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Handle note input in waiting mode
+   */
+  private handleNoteOnInWaitMode(note: number): void {
+    if (!this.waitForInputState) return;
+
+    const state = this.waitForInputState;
+
+    // Check if this note is required
+    if (!state.requiredNotes.has(note)) {
+      return; // Ignore unrequired notes
+    }
+
+    // C C problem: If this pitch was held from previous timing,
+    // don't count it until it's been released and re-pressed
+    if (state.lastInputPitches.has(note)) {
+      return; // Still held from previous note
+    }
+
+    // Find the note in currentTimingNotes and play sound
+    const hitNote = state.currentTimingNotes.find(n => n.pitch === note);
+    if (hitNote) {
+      // Play the sound immediately for required notes
+      this.audioFeedbackManager.playNoteSound(
+        hitNote.pitch,
+        hitNote.duration / 1000
+      );
+    }
+
+    // Evaluate the input for scoring (use frozen time for accurate evaluation)
+    this.scoreEvaluator.evaluateInput(
+      note,
+      state.nextNoteStartTime,
+      state.currentTimingNotes
+    );
+
+    // Update score display
+    const scoreInfo = this.scoreEvaluator.getScore();
+    this.currentGameState.score = scoreInfo.correct;
+    this.currentGameState.accuracy = scoreInfo.accuracy;
+    this.currentGameState.totalNotes = scoreInfo.total;
+    this.updateGameStateDisplay();
+
+    // Mark this note as pressed
+    state.pressedNotesForCurrentTiming.add(note);
+
+    // Check if all required notes are now pressed
+    if (this.isAllRequiredNotesPressed()) {
+      this.exitWaitingState();
+    }
+  }
+
+  /**
+   * Handle note release in waiting mode
+   */
+  private handleNoteOffInWaitMode(note: number): void {
+    if (!this.waitForInputState) return;
+
+    // Record that this note has been released
+    // (for C C problem - allows re-pressing)
+    this.waitForInputState.lastInputPitches.delete(note);
   }
 
   /**

@@ -84,7 +84,8 @@ export enum GamePhase {
   STOPPED = 'stopped',
   COUNTDOWN = 'countdown',
   PLAYING = 'playing',
-  PAUSED = 'paused'
+  PAUSED = 'paused',
+  WAITING_FOR_INPUT = 'waiting_for_input'
 }
 
 export interface GameState {
@@ -95,6 +96,23 @@ export interface GameState {
   accuracy: number;
   totalNotes?: number; // 通過したノート数
   countdownValue?: number | undefined; // カウントダウン中の数値（3, 2, 1）
+}
+
+// Game mode types
+export type GameMode = 'realtime' | 'wait-for-input';
+
+export interface GameSettings {
+  gameMode: GameMode;
+}
+
+// Wait-for-input mode state
+export interface WaitForInputState {
+  requiredNotes: Set<number>;  // Required pitches for current timing
+  pressedNotesForCurrentTiming: Set<number>;  // Notes pressed at this timing
+  currentTimingNotes: Note[];  // Note objects for current timing
+  nextNoteStartTime: number;  // Start time of next note group
+  waitingStartTime: number;  // When waiting started (for timeout)
+  lastInputPitches: Set<number>;  // Pitches from previous timing (for re-press detection)
 }
 
 // Component interfaces
