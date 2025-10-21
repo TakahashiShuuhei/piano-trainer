@@ -703,8 +703,14 @@ export class PianoPracticeApp {
       if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT && this.musicalTimeManager.isStarted()) {
         this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
 
+        // ScoreEvaluatorでアクティブノートを更新（待機中もスコア評価を継続）
+        this.scoreEvaluator.updateActiveNotes(this.currentGameState.currentTime, this.currentNotes);
+
         // Update playing guide to show required notes
         this.updatePlayingGuide();
+
+        // 楽曲終了チェック（リピート対応）
+        this.checkSongEnd();
       }
 
       // UIRendererで画面を描画
@@ -810,12 +816,6 @@ export class PianoPracticeApp {
    */
   private updateCurrentNotes(): void {
     const timeBasedNotes = this.beatTimeConverter.convertNotes(this.musicalNotes);
-
-    console.log('Sample converted notes:', timeBasedNotes.slice(0, 5).map(n => ({
-      pitch: n.pitch,
-      startTime: n.startTime,
-      duration: n.duration
-    })));
 
     // 相対時間として設定（ゲーム開始時刻は加算しない）
     this.currentNotes = timeBasedNotes.map(note => ({
@@ -1197,6 +1197,10 @@ export class PianoPracticeApp {
       // 微小な値を引いて、終了位置の音が鳴らないようにする
       const epsilon = 0.01; // 0.01拍 = 約5ms @ 120BPM
       if (currentPosition >= this.repeatEndBeat - epsilon) {
+        // Reset wait-for-input state BEFORE seeking
+        // これにより時間のフリーズが解除される
+        this.resetWaitForInputState();
+
         // 開始位置にシーク
         this.musicalTimeManager.seekToMusicalPosition(this.repeatStartBeat);
 
@@ -1211,9 +1215,6 @@ export class PianoPracticeApp {
 
         // 演奏ガイドをクリア
         this.uiRenderer.clearTargetKeys();
-
-        // Reset wait-for-input state when repeating
-        this.resetWaitForInputState();
       }
       return;
     }
