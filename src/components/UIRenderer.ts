@@ -232,15 +232,15 @@ export class UIRenderer {
     const width = this.canvas.width / window.devicePixelRatio;
 
     this.ctx.fillStyle = currentColors.primary;
-    this.ctx.font = '24px Arial';
+    this.ctx.font = '16px Arial';
     this.ctx.textAlign = 'left';
 
     // スコア表示（正解数 / 通過数）
     const totalNotes = gameState.totalNotes || 0;
-    this.ctx.fillText(`正解: ${gameState.score} / ${totalNotes}`, 20, 40);
+    this.ctx.fillText(`正解: ${gameState.score} / ${totalNotes}`, 20, 30);
 
     // 正解率表示
-    this.ctx.fillText(`正解率: ${(gameState.accuracy * 100).toFixed(1)}%`, 20, 70);
+    this.ctx.fillText(`正解率: ${(gameState.accuracy * 100).toFixed(1)}%`, 20, 50);
   }
 
   /**
@@ -776,12 +776,8 @@ export class UIRenderer {
 
     // BPM情報を表示
     this.ctx.fillStyle = currentColors.secondary;
-    this.ctx.font = '24px Arial';
-    this.ctx.fillText('準備してください', centerX, centerY + 80);
-
-    // 小さなメトロノーム表示
     this.ctx.font = '16px Arial';
-    this.ctx.fillText(`BPM: ${this.getCurrentBPM()}`, centerX, centerY + 110);
+    this.ctx.fillText(`BPM: ${this.getCurrentBPM()}`, centerX, centerY + 80);
   }
 
   /**

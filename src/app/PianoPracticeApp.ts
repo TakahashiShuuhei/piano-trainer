@@ -945,6 +945,10 @@ export class PianoPracticeApp {
     // UIRendererにもBPMを設定
     this.uiRenderer.setBPM(newBPM);
 
+    // UI表示も更新
+    this.updateBPMDisplay(newBPM);
+    this.dom.bpmSlider.value = newBPM.toString();
+
     // 既存の音楽的ノートを新しいBPMで再変換
     if (this.musicalNotes.length > 0) {
       this.updateCurrentNotes();
