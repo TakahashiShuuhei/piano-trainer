@@ -401,24 +401,17 @@ export class PianoPracticeApp {
   }
 
   private async handleMidiConnect(): Promise<void> {
-
-
     if (!this.midiManager) {
       console.error('MIDI Manager not initialized');
       alert('MIDI Manager が初期化されていません');
       return;
     }
 
-
-
     try {
-
-
       const success = await this.midiManager.requestAccess();
 
       if (success) {
         const devices = this.midiManager.getAvailableDevices();
-
 
         if (devices.length > 0) {
           // Transport との同期を開始
@@ -562,7 +555,6 @@ export class PianoPracticeApp {
 
   private handleStop(): void {
     if (!this.isInitialized) return;
-
 
     // カウントダウンタイマーをクリア
     if (this.countdownTimer) {
@@ -763,7 +755,6 @@ export class PianoPracticeApp {
     };
 
     requestAnimationFrame(render);
-
   }
 
   /**
@@ -859,7 +850,6 @@ export class PianoPracticeApp {
 
     // メモも同時に変換
     this.updateCurrentMemos();
-
   }
 
   /**
@@ -1089,8 +1079,6 @@ export class PianoPracticeApp {
 
       // ノートの開始タイミングに到達したか確認
       if (Math.abs(currentTime - note.startTime) <= tolerance && currentTime >= note.startTime) {
-
-
         // ノートを再生
         this.audioFeedbackManager.playNoteSound(note.pitch, note.duration / 1000); // msを秒に変換
 
@@ -1178,8 +1166,6 @@ export class PianoPracticeApp {
     return this.audioFeedbackManager.isMutedState();
   }
 
-
-
   /**
    * 楽曲終了をチェックしてループ処理
    */
@@ -1228,7 +1214,6 @@ export class PianoPracticeApp {
       this.handleStop();
     }
   }
-
 
   /**
    * シークバーコントロールを設定
@@ -1317,7 +1302,6 @@ export class PianoPracticeApp {
     const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
     this.dom.musicalPositionDisplay.textContent = currentPosition.toFixed(1);
   }
-
 
   /**
    * 部分リピートコントロールを設定
@@ -1462,8 +1446,6 @@ export class PianoPracticeApp {
     this.dom.pointAInput.disabled = !isEnabled;
     this.dom.pointBInput.disabled = !isEnabled;
   }
-
-
 
   /**
    * 参考画像トグルコントロールを設定
@@ -1743,7 +1725,5 @@ export class PianoPracticeApp {
     if (this.audioFeedbackManager) {
       this.audioFeedbackManager.destroy();
     }
-
-
   }
 }
