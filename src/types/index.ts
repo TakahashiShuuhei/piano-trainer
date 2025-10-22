@@ -18,15 +18,6 @@ export interface Note {
   velocity: number;     // 0-127
 }
 
-export interface PracticeContent {
-  id: string;
-  title: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  bpm: number;
-  timeSignature: [number, number];
-  notes: Note[];
-  duration: number;
-}
 
 // JSON楽曲データの型定義（仕様に基づく）
 export interface SongData {
@@ -150,23 +141,6 @@ export interface UIRenderer {
   destroy(): void;
 }
 
-export interface ContentManager {
-  getAvailableContent(): PracticeContent[];
-  loadContent(id: string): Promise<PracticeContent>;
-  createCustomContent(notes: Note[]): PracticeContent;
-}
-
-export interface MetronomeService {
-  start(bpm: number): void;
-  stop(): void;
-  setBPM(bpm: number): void;
-  setVolume(volume: number): void;
-  getTransport(): any; // Tone.Transport type
-  scheduleCallback(callback: () => void, time: string): void;
-  scheduleRepeat(callback: () => void, interval: string): void;
-  getCurrentTime(): number;
-  convertTimeToBeats(time: number): number;
-}
 
 // Beat-time conversion interface
 export interface BeatTimeConverter {

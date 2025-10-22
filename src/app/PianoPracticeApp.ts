@@ -1,8 +1,6 @@
 import {
   MIDIInputManager as IMIDIInputManager,
   UIRenderer as IUIRenderer,
-  ContentManager,
-  MetronomeService,
   GameState,
   GamePhase,
   Note,
@@ -33,8 +31,6 @@ export class PianoPracticeApp {
   private scoreEvaluator!: ScoreEvaluator;
   private midiManager!: IMIDIInputManager;
   private uiRenderer!: IUIRenderer;
-  private contentManager!: ContentManager;
-  private metronome!: MetronomeService;
 
   private canvas!: HTMLCanvasElement;
   private isInitialized = false;
