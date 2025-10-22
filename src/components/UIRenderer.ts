@@ -241,10 +241,6 @@ export class UIRenderer {
 
     // 正解率表示
     this.ctx.fillText(`正解率: ${(gameState.accuracy * 100).toFixed(1)}%`, 20, 70);
-
-    // 再生状態表示
-    this.ctx.fillStyle = gameState.isPlaying ? currentColors.success : currentColors.secondary;
-    this.ctx.fillText(gameState.isPlaying ? 'Playing' : 'Paused', width - 120, 40);
   }
 
   /**

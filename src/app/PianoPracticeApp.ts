@@ -158,14 +158,16 @@ export class PianoPracticeApp {
 
 
   private setupEventListeners(): void {
-    // MIDI接続ボタン
-    const connectMidiBtn = document.getElementById('connectMidiBtn');
-    if (connectMidiBtn) {
-      connectMidiBtn.addEventListener('click', () => {
-        this.handleMidiConnect();
+    // MIDI接続ステータス（クリックで接続）
+    const midiStatus = document.getElementById('midiStatus');
+    if (midiStatus) {
+      midiStatus.addEventListener('click', () => {
+        // 未接続時のみ接続を試行
+        const isDisconnected = midiStatus.classList.contains('disconnected');
+        if (isDisconnected) {
+          this.handleMidiConnect();
+        }
       });
-    } else {
-      console.error('MIDI connect button not found in setupEventListeners');
     }
 
     // ファイル読み込み
@@ -174,15 +176,18 @@ export class PianoPracticeApp {
       fileInput.addEventListener('change', (event) => this.handleFileLoad(event));
     }
 
-    // ゲーム制御ボタン
-    const startBtn = document.getElementById('startBtn');
-    if (startBtn) {
-      startBtn.addEventListener('click', () => this.handleStart());
-    }
-
-    const pauseBtn = document.getElementById('pauseBtn');
-    if (pauseBtn) {
-      pauseBtn.addEventListener('click', () => this.handlePause());
+    // ゲーム制御ボタン（再生/一時停止統合）
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    if (playPauseBtn) {
+      playPauseBtn.addEventListener('click', () => {
+        if (this.currentGameState.phase === GamePhase.STOPPED) {
+          this.handleStart();
+        } else if (this.currentGameState.phase === GamePhase.PLAYING || this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+          this.handlePause();
+        } else if (this.currentGameState.phase === GamePhase.PAUSED) {
+          this.handlePause(); // resume
+        }
+      });
     }
 
     const stopBtn = document.getElementById('stopBtn');
@@ -566,56 +571,79 @@ export class PianoPracticeApp {
   }
 
   private updateMidiStatus(connected: boolean): void {
-    // MIDI接続ボタンのテキストを変更
-    const connectMidiBtn = document.getElementById('connectMidiBtn') as HTMLButtonElement;
-    if (connectMidiBtn) {
-      connectMidiBtn.textContent = connected ? 'MIDI接続済み' : 'MIDI接続';
-      connectMidiBtn.disabled = connected; // 接続済みの場合は無効化
+    // MIDI状態表示を更新
+    const midiStatus = document.getElementById('midiStatus');
+    const midiStatusText = document.getElementById('midiStatusText');
+    const midiTooltip = document.getElementById('midiTooltip');
+    const midiIcon = midiStatus?.querySelector('.midi-status-icon');
+
+    if (midiStatus && midiIcon && midiStatusText) {
+      if (connected) {
+        midiStatus.classList.remove('disconnected');
+        midiStatus.classList.add('connected');
+        midiIcon.textContent = '✓';
+        midiStatusText.textContent = 'MIDI接続済み';
+        if (midiTooltip) {
+          midiTooltip.innerHTML = 'MIDI機器が接続されています';
+        }
+        // 接続済みの場合はカーソルを通常に
+        midiStatus.style.cursor = 'default';
+      } else {
+        midiStatus.classList.remove('connected');
+        midiStatus.classList.add('disconnected');
+        midiIcon.textContent = '⚠️';
+        midiStatusText.textContent = 'MIDI接続';
+        if (midiTooltip) {
+          midiTooltip.innerHTML = 'クリックで接続';
+        }
+        // 未接続の場合はカーソルをポインターに
+        midiStatus.style.cursor = 'pointer';
+      }
     }
 
-    // 開始ボタンは常に有効（MIDI接続なしでも楽曲再生とキーボード入力が可能）
-    const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
-    if (startBtn) {
-      startBtn.disabled = false; // 常に有効
+    // 再生/一時停止ボタンは常に有効（MIDI接続なしでも楽曲再生とキーボード入力が可能）
+    const playPauseBtn = document.getElementById('playPauseBtn') as HTMLButtonElement;
+    if (playPauseBtn) {
+      playPauseBtn.disabled = false; // 常に有効
     }
   }
 
   private updateGameState(state: GameState): void {
-    // 削除されたスコア表示要素への参照を削除
-
-    // ボタンの状態更新
-    const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
-    const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement;
+    // ボタンの状態更新（Font Awesomeアイコン版）
+    const playPauseBtn = document.getElementById('playPauseBtn') as HTMLButtonElement;
     const stopBtn = document.getElementById('stopBtn') as HTMLButtonElement;
 
-    if (startBtn && pauseBtn && stopBtn) {
+    if (playPauseBtn && stopBtn) {
+      const icon = playPauseBtn.querySelector('i');
+      if (!icon) return;
+
       switch (state.phase) {
         case GamePhase.STOPPED:
-          startBtn.disabled = false;
-          pauseBtn.disabled = true;
+          playPauseBtn.disabled = false;
+          icon.className = 'fas fa-play';
+          playPauseBtn.title = '開始';
           stopBtn.disabled = true;
-          pauseBtn.textContent = '一時停止';
           break;
 
         case GamePhase.COUNTDOWN:
-          startBtn.disabled = true;
-          pauseBtn.disabled = true; // カウントダウン中は一時停止不可
+          playPauseBtn.disabled = true;
+          icon.className = 'fas fa-play';
           stopBtn.disabled = false;
-          pauseBtn.textContent = '一時停止';
           break;
 
         case GamePhase.PLAYING:
-          startBtn.disabled = true;
-          pauseBtn.disabled = false;
+        case GamePhase.WAITING_FOR_INPUT:
+          playPauseBtn.disabled = false;
+          icon.className = 'fas fa-pause';
+          playPauseBtn.title = '一時停止';
           stopBtn.disabled = false;
-          pauseBtn.textContent = '一時停止';
           break;
 
         case GamePhase.PAUSED:
-          startBtn.disabled = true;
-          pauseBtn.disabled = false;
+          playPauseBtn.disabled = false;
+          icon.className = 'fas fa-play';
+          playPauseBtn.title = '再開';
           stopBtn.disabled = false;
-          pauseBtn.textContent = '再開';
           break;
       }
     }
@@ -1353,7 +1381,10 @@ export class PianoPracticeApp {
     if (partialRepeatEnabled) {
       partialRepeatEnabled.addEventListener('change', () => {
         this.isPartialRepeatEnabled = partialRepeatEnabled.checked;
+        this.updateRepeatControlsState();
       });
+      // 初期状態を設定
+      this.updateRepeatControlsState();
     }
 
     if (setPointA) {
@@ -1503,6 +1534,42 @@ export class PianoPracticeApp {
     }
   }
 
+  /**
+   * リピートコントロールの有効/無効状態を更新
+   */
+  private updateRepeatControlsState(): void {
+    const isEnabled = this.isPartialRepeatEnabled;
+
+    // ボタンを取得
+    const buttons = [
+      document.getElementById('setPointA') as HTMLButtonElement,
+      document.getElementById('setPointAToStart') as HTMLButtonElement,
+      document.getElementById('setPointB') as HTMLButtonElement,
+      document.getElementById('setPointBToEnd') as HTMLButtonElement,
+      document.getElementById('clearRepeatPoints') as HTMLButtonElement,
+    ];
+
+    // 入力フィールドを取得
+    const inputs = [
+      document.getElementById('pointAInput') as HTMLInputElement,
+      document.getElementById('pointBInput') as HTMLInputElement,
+    ];
+
+    // ボタンの有効/無効を切り替え
+    buttons.forEach(btn => {
+      if (btn) {
+        btn.disabled = !isEnabled;
+      }
+    });
+
+    // 入力フィールドの有効/無効を切り替え
+    inputs.forEach(input => {
+      if (input) {
+        input.disabled = !isEnabled;
+      }
+    });
+  }
+
 
 
   /**
@@ -1538,16 +1605,31 @@ export class PianoPracticeApp {
    * ゲームモード選択コントロールを設定
    */
   private setupGameModeControls(): void {
-    const gameModeSelect = document.getElementById('gameModeSelect') as HTMLSelectElement;
+    // ラジオボタン風のモード選択
+    const realtimeMode = document.getElementById('realtimeMode');
+    const waitMode = document.getElementById('waitMode');
 
-    if (gameModeSelect) {
-      gameModeSelect.addEventListener('change', (event) => {
-        const mode = (event.target as HTMLSelectElement).value as GameMode;
-        this.setGameMode(mode);
+    if (realtimeMode && waitMode) {
+      realtimeMode.addEventListener('click', () => {
+        this.setGameMode('realtime');
+        realtimeMode.classList.add('active');
+        waitMode.classList.remove('active');
+      });
+
+      waitMode.addEventListener('click', () => {
+        this.setGameMode('wait-for-input');
+        waitMode.classList.add('active');
+        realtimeMode.classList.remove('active');
       });
 
       // 初期値を設定
-      gameModeSelect.value = this.gameSettings.gameMode;
+      if (this.gameSettings.gameMode === 'realtime') {
+        realtimeMode.classList.add('active');
+        waitMode.classList.remove('active');
+      } else {
+        waitMode.classList.add('active');
+        realtimeMode.classList.remove('active');
+      }
     }
   }
 

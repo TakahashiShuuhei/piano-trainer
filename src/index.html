@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Piano Practice App</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23000' width='100' height='100'/%3E%3Crect fill='%23fff' x='5' y='30' width='12' height='50' rx='2'/%3E%3Crect fill='%23fff' x='21' y='30' width='12' height='50' rx='2'/%3E%3Crect fill='%23fff' x='37' y='30' width='12' height='50' rx='2'/%3E%3Crect fill='%23fff' x='53' y='30' width='12' height='50' rx='2'/%3E%3Crect fill='%23fff' x='69' y='30' width='12' height='50' rx='2'/%3E%3Crect fill='%23fff' x='85' y='30' width='12' height='50' rx='2'/%3E%3Crect fill='%23000' x='13' y='30' width='7' height='30' rx='1'/%3E%3Crect fill='%23000' x='29' y='30' width='7' height='30' rx='1'/%3E%3Crect fill='%23000' x='61' y='30' width='7' height='30' rx='1'/%3E%3Crect fill='%23000' x='77' y='30' width='7' height='30' rx='1'/%3E%3C/svg%3E">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -38,6 +40,28 @@
             width: 100%;
             max-width: 1200px;
             height: 400px;
+        }
+
+        /* Canvas上のコントロールボタン */
+        .canvas-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .canvas-controls .btn {
+            font-size: 16px;
+            padding: 8px 16px;
+            min-width: 50px;
+        }
+
+        .canvas-controls .file-input-label {
+            font-size: 14px;
+            padding: 4px 8px;
+            min-width: auto;
         }
 
         .song-title {
@@ -104,13 +128,98 @@
             background: linear-gradient(135deg, #06b6d4, #10b981);
             box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
         }
-        
+
         .btn.accent:hover:not(:disabled) {
             background: linear-gradient(135deg, #0891b2, #059669);
             box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
         }
 
-        
+        .btn.accent:disabled {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            color: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.6;
+            box-shadow: none;
+        }
+
+        /* 再生コントロールボタン（シンプル・透明背景） */
+        .btn.control {
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn.control:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn.control:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+        }
+
+        /* トグルスイッチ */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.3s;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 2px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #06b6d4, #10b981);
+            border-color: rgba(6, 182, 212, 0.5);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .repeat-toggle-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+
         .error-message {
             background-color: #f44336;
             color: white;
@@ -191,6 +300,14 @@
             transform: scale(1.1);
         }
         
+        input[type="number"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #6b7280 !important;
+        }
+
         input[type="range"]::-moz-range-thumb {
             width: 20px;
             height: 20px;
@@ -214,6 +331,157 @@
         select:focus {
             border-color: #6366f1;
             box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        /* selectのoption要素のスタイル修正 */
+        select option {
+            background-color: #1f2937;
+            color: white;
+            padding: 8px;
+        }
+
+        /* ラジオボタン風の演奏モード選択 */
+        .mode-selector {
+            display: inline-flex;
+            background: rgba(31, 41, 55, 0.8);
+            border-radius: 8px;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .mode-option {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .mode-option:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .mode-option.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+        }
+
+        .mode-option:hover .tooltip {
+            opacity: 1;
+        }
+
+        /* 縦並びモードセレクター */
+        .mode-selector[style*="flex-direction: column"] {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* MIDI接続ステータス */
+        .midi-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: rgba(31, 41, 55, 0.6);
+            border-radius: 6px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            border: 1px solid transparent;
+        }
+
+        .midi-status:hover {
+            background: rgba(31, 41, 55, 0.9);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+
+        .midi-status.connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border-color: rgba(16, 185, 129, 0.3);
+            cursor: default;
+        }
+
+        .midi-status.connected:hover {
+            background: rgba(16, 185, 129, 0.25);
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        .midi-status.disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .midi-status.disconnected:hover {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+            transform: scale(1.02);
+        }
+
+        .midi-status-icon {
+            font-size: 14px;
+        }
+
+        /* ツールチップ */
+        .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: rgba(31, 41, 55, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        .midi-status:hover .tooltip {
+            opacity: 1;
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(31, 41, 55, 0.95);
+        }
+
+        /* ファイル読み込みボタン（アイコンのみ） */
+        .file-input-label {
+            padding: 8px 14px;
+            font-size: 16px;
+            background: rgba(99, 102, 241, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: none;
+        }
+
+        .file-input-label:hover {
+            background: rgba(99, 102, 241, 0.2);
+            color: rgba(255, 255, 255, 0.9);
+            transform: none;
+        }
+
+        .file-input-label:hover .tooltip {
+            opacity: 1;
         }
 
         /* リピート位置のハイライトアニメーション */
@@ -312,8 +580,16 @@
         
         <div class="game-area">
             <canvas id="gameCanvas"></canvas>
+            <!-- Canvas上: タイトルとファイル読み込み -->
+            <div class="canvas-controls" style="align-items: center;">
+                <div class="song-title" id="songTitle" style="margin: 0;">Piano Practice App</div>
+                <label for="fileInput" class="btn file-input-label" style="cursor: pointer; position: relative; padding: 4px 8px; font-size: 14px;">
+                    <i class="fas fa-folder-open"></i>
+                    <span class="tooltip">楽曲ファイル</span>
+                </label>
+                <input type="file" id="fileInput" accept=".json" style="display: none;">
+            </div>
         </div>
-        <div class="song-title" id="songTitle">Piano Practice App</div>
 
         <!-- 参考画像表示エリア -->
         <div class="reference-image-area" id="referenceImageArea" style="display: none;">
@@ -325,103 +601,141 @@
                 <img id="referenceImage" src="" alt="参考画像">
             </div>
         </div>
-        
-        <div class="controls">
-            <button class="btn accent" id="connectMidiBtn">MIDI接続</button>
-            <label for="fileInput" class="btn accent" style="cursor: pointer;">楽曲ファイル読み込み</label>
-            <input type="file" id="fileInput" accept=".json" style="display: none;">
-            <button class="btn" id="startBtn">開始</button>
-            <button class="btn secondary" id="pauseBtn" disabled>一時停止</button>
-            <button class="btn secondary" id="stopBtn" disabled>停止</button>
+
+        <!-- メインコントロール（1行にまとめる） -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 20px;">
+            <!-- 左端: BPMと音量 -->
+            <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; max-width: 600px;">
+                <!-- BPM調整 -->
+                <div class="bpm-controls" style="display: flex; align-items: center; gap: 8px;">
+                    <label for="bpmSlider" style="color: white; font-size: 12px; width: 40px; text-align: left;">BPM:</label>
+                    <button class="btn accent" id="bpmDown" style="padding: 4px 8px; font-size: 12px; min-width: 32px;">-</button>
+                    <input type="range" id="bpmSlider" min="30" max="200" value="120" style="flex: 1;">
+                    <button class="btn accent" id="bpmUp" style="padding: 4px 8px; font-size: 12px; min-width: 32px;">+</button>
+                    <span id="bpmDisplay" style="color: white; font-weight: bold; font-size: 12px; width: 40px; text-align: right;">120</span>
+                </div>
+                <!-- 音量調整 -->
+                <div class="volume-controls" style="display: flex; align-items: center; gap: 8px;">
+                    <label for="volumeSlider" style="color: white; font-size: 12px; width: 40px; text-align: left;">音量:</label>
+                    <button class="btn accent" id="muteBtn" style="padding: 4px 8px; font-size: 12px; min-width: 32px;">🔊</button>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="60" style="flex: 1;">
+                    <div style="min-width: 32px;"></div>
+                    <span id="volumeDisplay" style="color: white; font-weight: bold; font-size: 12px; width: 40px; text-align: right;">60%</span>
+                </div>
+            </div>
+
+            <!-- 中央: 再生/停止ボタン -->
+            <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                <button class="btn control" id="playPauseBtn">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="btn control" id="stopBtn" disabled>
+                    <i class="fas fa-stop"></i>
+                </button>
+            </div>
+
+            <!-- 右端: MIDI -->
+            <div style="display: flex; justify-content: flex-end;">
+                <div class="midi-status disconnected" id="midiStatus" style="position: relative;">
+                    <span class="midi-status-icon">⚠️</span>
+                    <span id="midiStatusText">MIDI接続</span>
+                    <div class="tooltip" id="midiTooltip">
+                        クリックで接続
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="controls-section" style="text-align: center; margin: 20px 0;">
             <!-- シークバー -->
             <div class="seek-controls" style="margin-bottom: 20px; max-width: 800px; margin-left: auto; margin-right: auto;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                    <span id="currentTimeDisplay" style="color: white; font-weight: bold; min-width: 50px;">0:00</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="currentTimeDisplay" style="color: white; font-weight: bold; width: 50px;">0:00</span>
                     <input type="range" id="seekBar" min="0" max="1000" value="0" style="flex: 1;">
-                    <span id="totalTimeDisplay" style="color: white; font-weight: bold; min-width: 50px;">0:00</span>
-                </div>
-                <div style="color: #9ca3af; font-size: 12px;">
-                    楽曲の位置: <span id="musicalPositionDisplay">0.0</span> 拍
-                </div>
-            </div>
-
-            <!-- リピート設定 -->
-            <div class="partial-repeat-controls" style="margin-bottom: 20px; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; max-width: 800px; margin-left: auto; margin-right: auto;">
-                <div style="margin-bottom: 10px;">
-                    <label style="color: white; font-weight: bold;">
-                        <input type="checkbox" id="partialRepeatEnabled" style="margin-right: 5px;">
-                        リピート練習
-                    </label>
-                </div>
-                <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-                    <button class="btn accent" id="setPointA" style="padding: 8px 16px; white-space: nowrap;">
-                        開始位置を現在地に
-                    </button>
-                    <button class="btn accent" id="setPointAToStart" style="padding: 8px 16px; white-space: nowrap;">
-                        開始を最初に
-                    </button>
-                    <button class="btn accent" id="setPointB" style="padding: 8px 16px; white-space: nowrap;">
-                        終了位置を現在地に
-                    </button>
-                    <button class="btn accent" id="setPointBToEnd" style="padding: 8px 16px; white-space: nowrap;">
-                        終了を最後に
-                    </button>
-                    <button class="btn secondary" id="clearRepeatPoints" style="padding: 8px 16px;">
-                        クリア
-                    </button>
-                </div>
-                <div style="display: flex; justify-content: center; gap: 20px; align-items: center; color: white; font-size: 14px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <label for="pointAInput" style="color: #06b6d4;">開始:</label>
-                        <input type="number" id="pointAInput" min="0" step="0.1" placeholder="未設定"
-                               style="width: 80px; padding: 4px 8px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 4px; color: white; text-align: center;">
-                        <span style="color: #9ca3af;">拍</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <label for="pointBInput" style="color: #10b981;">終了:</label>
-                        <input type="number" id="pointBInput" min="0" step="0.1" placeholder="未設定"
-                               style="width: 80px; padding: 4px 8px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 4px; color: white; text-align: center;">
-                        <span style="color: #9ca3af;">拍</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ゲームモード選択 -->
-            <div style="display: flex; justify-content: center; margin-bottom: 20px;">
-                <div class="game-mode-controls" style="display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
-                    <label for="gameModeSelect" style="color: white; font-weight: bold;">演奏モード:</label>
-                    <select id="gameModeSelect" style="font-size: 14px; padding: 8px 12px; min-width: 180px;">
-                        <option value="realtime">通常モード（リアルタイム）</option>
-                        <option value="wait-for-input">練習モード（押すまで待機）</option>
-                    </select>
-                    <span style="color: #9ca3af; font-size: 12px; max-width: 300px;">
-                        練習モードでは正しい鍵盤を押すまで進行が停止します
+                    <span style="color: white; font-weight: bold; white-space: nowrap; width: 140px; text-align: right;">
+                        <span id="totalTimeDisplay">0:00</span>
+                        <span style="color: #9ca3af; font-size: 12px; margin-left: 8px;">
+                            (<span id="musicalPositionDisplay">0.0</span> 拍)
+                        </span>
                     </span>
                 </div>
             </div>
 
-            <!-- BPMと音量調整を横並び -->
-            <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 15px; flex-wrap: wrap;">
-                <!-- BPM調整 -->
-                <div class="bpm-controls" style="display: flex; align-items: center; gap: 10px;">
-                    <label for="bpmSlider" style="color: white;">BPM:</label>
-                    <button class="btn accent" id="bpmDown" style="padding: 5px 10px;">-</button>
-                    <input type="range" id="bpmSlider" min="30" max="200" value="120">
-                    <button class="btn accent" id="bpmUp" style="padding: 5px 10px;">+</button>
-                    <span id="bpmDisplay" style="color: white; font-weight: bold;">120</span>
+            <!-- リピート設定とゲームモード -->
+            <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; max-width: 1000px; margin-left: auto; margin-right: auto;">
+                <!-- 左: リピート設定 -->
+                <div class="partial-repeat-controls" style="flex: 1; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
+                    <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+                        <!-- グループ1: トグル -->
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <label class="repeat-toggle-label">
+                                <i class="fas fa-repeat" style="font-size: 16px;"></i>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="partialRepeatEnabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </label>
+                        </div>
+
+                        <!-- グループ2: 最初から・ここから + 開始 -->
+                        <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn accent" id="setPointAToStart" style="padding: 8px 16px; white-space: nowrap;">
+                                    <i class="fas fa-step-backward"></i> 最初から
+                                </button>
+                                <button class="btn accent" id="setPointA" style="padding: 8px 16px; white-space: nowrap;">
+                                    <i class="fas fa-map-marker-alt"></i> ここから
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; color: white; font-size: 14px; padding-right: 4px;">
+                                <label for="pointAInput" style="color: #06b6d4;">開始:</label>
+                                <input type="number" id="pointAInput" min="0" step="0.1" placeholder="未設定"
+                                       style="width: 80px; padding: 4px 8px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 4px; color: white; text-align: center;">
+                                <span style="color: #9ca3af;">拍</span>
+                            </div>
+                        </div>
+
+                        <!-- グループ3: ここまで・最後まで + 終了 -->
+                        <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;">
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn accent" id="setPointB" style="padding: 8px 16px; white-space: nowrap;">
+                                    <i class="fas fa-map-marker-alt"></i> ここまで
+                                </button>
+                                <button class="btn accent" id="setPointBToEnd" style="padding: 8px 16px; white-space: nowrap;">
+                                    <i class="fas fa-step-forward"></i> 最後まで
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; color: white; font-size: 14px; padding-left: 4px;">
+                                <label for="pointBInput" style="color: #10b981;">終了:</label>
+                                <input type="number" id="pointBInput" min="0" step="0.1" placeholder="未設定"
+                                       style="width: 80px; padding: 4px 8px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 4px; color: white; text-align: center;">
+                                <span style="color: #9ca3af;">拍</span>
+                            </div>
+                        </div>
+
+                        <!-- グループ4: クリア -->
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button class="btn secondary" id="clearRepeatPoints" style="padding: 8px 16px;">
+                                <i class="fas fa-trash-alt"></i> クリア
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- 音量調整 -->
-                <div class="volume-controls" style="display: flex; align-items: center; gap: 10px;">
-                    <label for="volumeSlider" style="color: white;">音量:</label>
-                    <button class="btn accent" id="muteBtn" style="padding: 5px 10px;">🔊</button>
-                    <input type="range" id="volumeSlider" min="0" max="100" value="60">
-                    <span id="volumeDisplay" style="color: white; font-weight: bold;">60%</span>
+                <!-- 右: ゲームモード選択 -->
+                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
+                    <div class="mode-selector" style="flex-direction: column;">
+                        <button class="mode-option active" data-mode="realtime" id="realtimeMode" style="width: 100%; position: relative;">
+                            🎹 通常モード
+                        </button>
+                        <button class="mode-option" data-mode="wait-for-input" id="waitMode" style="width: 100%; position: relative;">
+                            📚 練習モード
+                            <span class="tooltip">正しい鍵盤を押すまで進行が停止します</span>
+                        </button>
+                    </div>
                 </div>
             </div>
+
         </div>
     </div>
 
