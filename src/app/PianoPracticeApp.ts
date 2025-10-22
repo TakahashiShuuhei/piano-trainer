@@ -266,27 +266,17 @@ export class PianoPracticeApp {
 
       if (songData) {
         // 外部楽曲データを使用
-        this.musicalNotes = songData.notes;
-        this.musicalMemos = songData.memos || [];
-
-        // BPMも外部データから取得
         const songBPM = await this.contentLoader.getSongBPM();
-        if (songBPM) {
-          this.setBPM(songBPM);
-        }
-
-        // タイトルを表示に反映
         const songTitle = await this.contentLoader.getSongTitle();
-        if (songTitle) {
-          this.updateSongTitle(songTitle);
-        }
 
-        // 参考画像を表示
-        if (songData.referenceImageUrl) {
-          this.updateReferenceImage(songData.referenceImageUrl);
-        } else {
-          this.hideReferenceImage();
-        }
+        // 楽曲データを適用
+        this.applySongData({
+          notes: songData.notes,
+          memos: songData.memos,
+          bpm: songBPM ?? undefined,
+          title: songTitle ?? undefined,
+          referenceImageUrl: songData.referenceImageUrl
+        });
 
         console.log('楽曲データを読み込みました:', songTitle || '無題', `(BPM: ${songBPM || 120})`);
       } else {
@@ -306,7 +296,33 @@ export class PianoPracticeApp {
       this.showError(`${errorMessage} デフォルトの楽曲を使用します。`);
     }
   }
-  
+
+  /**
+   * 楽曲データをアプリケーションに適用する共通処理
+   */
+  private applySongData(songData: { notes: MusicalNote[]; memos?: SongMemo[] | undefined; bpm?: number | undefined; title?: string | undefined; referenceImageUrl?: string | undefined }): void {
+    // 楽曲データを設定
+    this.musicalNotes = songData.notes;
+    this.musicalMemos = songData.memos || [];
+
+    // BPMを設定
+    if (songData.bpm) {
+      this.setBPM(songData.bpm);
+    }
+
+    // タイトルを表示に反映
+    if (songData.title) {
+      this.updateSongTitle(songData.title);
+    }
+
+    // 参考画像を表示
+    if (songData.referenceImageUrl) {
+      this.updateReferenceImage(songData.referenceImageUrl);
+    } else {
+      this.hideReferenceImage();
+    }
+  }
+
   /**
    * 楽曲タイトルをUIに反映
    */
@@ -350,22 +366,14 @@ export class PianoPracticeApp {
         try {
           const jsonData = JSON.parse(e.target?.result as string);
 
-          // タイトルを更新
-          if (jsonData.title) {
-            this.updateSongTitle(jsonData.title);
-          }
-
-          // BPMを更新
-          if (jsonData.bpm) {
-            this.setBPM(jsonData.bpm);
-          }
-
-          // 参考画像を更新
-          if (jsonData.referenceImageUrl) {
-            this.updateReferenceImage(jsonData.referenceImageUrl);
-          } else {
-            this.hideReferenceImage();
-          }
+          // 楽曲データを適用
+          this.applySongData({
+            notes: songData.notes,
+            memos: songData.memos,
+            bpm: jsonData.bpm,
+            title: jsonData.title,
+            referenceImageUrl: jsonData.referenceImageUrl
+          });
 
           console.log('楽曲ファイルを読み込みました:', jsonData.title || '無題', `(BPM: ${jsonData.bpm || 120})`);
         } catch (error) {
@@ -373,10 +381,6 @@ export class PianoPracticeApp {
         }
       };
       fileReader.readAsText(file, 'utf-8');
-
-      // 楽曲データを設定
-      this.musicalNotes = songData.notes;
-      this.musicalMemos = songData.memos || [];
 
       // 再生中の場合は停止
       if (this.currentGameState.phase !== GamePhase.STOPPED) {
@@ -814,23 +818,18 @@ export class PianoPracticeApp {
       // ContentLoaderのloadFromFileを使用（既存の処理を再利用）
       const songData = await this.contentLoader.loadFromFile(file);
 
-      // 楽曲データを設定
-      this.musicalNotes = songData.notes;
-      this.musicalMemos = songData.memos || [];
-
       // JSONデータからBPMとタイトルを取得
       const jsonText = await blob.text();
       const jsonData = JSON.parse(jsonText);
 
-      // BPMを設定
-      if (jsonData.bpm) {
-        this.setBPM(jsonData.bpm);
-      }
-
-      // タイトルを表示に反映
-      if (jsonData.title) {
-        this.updateSongTitle(jsonData.title);
-      }
+      // 楽曲データを適用
+      this.applySongData({
+        notes: songData.notes,
+        memos: songData.memos,
+        bpm: jsonData.bpm,
+        title: jsonData.title,
+        referenceImageUrl: jsonData.referenceImageUrl
+      });
 
       console.log('サンプル楽曲を読み込みました:', jsonData.title || 'サンプル楽曲');
     } catch (error) {
