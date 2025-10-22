@@ -83,7 +83,7 @@ export class PianoPracticeApp {
   public async initialize(): Promise<void> {
     try {
       // DOM要素の取得
-      this.setupDOMElements();
+      this.bindDOMElements();
 
       // コンポーネントの初期化
       await this.initializeComponents();
@@ -103,7 +103,7 @@ export class PianoPracticeApp {
     }
   }
 
-  private setupDOMElements(): void {
+  private bindDOMElements(): void {
     this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
     if (!this.canvas) {
       throw new Error('Canvas element not found');
