@@ -78,6 +78,8 @@ export class PianoPracticeApp {
   private lastTimingPitches: Set<number> = new Set();
   // Track which note timings we've already waited for (to avoid re-entering waiting state)
   private processedWaitTimings: Set<number> = new Set();
+  // Flag to indicate we just seeked (to prevent selecting past notes immediately after seek)
+  private justSeeked: boolean = false;
 
   constructor() {
     // コンストラクタは軽量に保つ
@@ -1229,7 +1231,8 @@ export class PianoPracticeApp {
    * シークバー変更時の処理
    */
   private handleSeekBarChange(progress: number): void {
-    if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+    // ノートが読み込まれていない場合は何もしない
+    if (this.currentNotes.length === 0) {
       return;
     }
 
@@ -1238,6 +1241,18 @@ export class PianoPracticeApp {
 
     const totalDuration = lastNote.startTime + lastNote.duration;
     const targetTime = progress * totalDuration;
+
+    // Wait-for-inputモードの場合、時間の凍結を解除してからシーク
+    if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+      this.musicalTimeManager.unfreezeTime();
+      this.waitForInputState = null;
+      this.currentGameState.phase = GamePhase.PLAYING;
+    }
+
+    // MusicalTimeManagerが開始されていない場合は開始する
+    if (!this.musicalTimeManager.isStarted()) {
+      this.musicalTimeManager.start();
+    }
 
     // シーク実行
     this.musicalTimeManager.seekToRealTime(targetTime);
@@ -1250,6 +1265,14 @@ export class PianoPracticeApp {
 
     // 再生済みノートをクリア
     this.playedNotes.clear();
+
+    // Wait-for-inputモードの処理済みタイミングもクリア
+    if (this.gameSettings.gameMode === 'wait-for-input') {
+      this.processedWaitTimings.clear();
+      this.lastTimingPitches.clear();
+      // Mark that we just seeked to prevent selecting past notes
+      this.justSeeked = true;
+    }
   }
 
   /**
@@ -1559,13 +1582,32 @@ export class PianoPracticeApp {
    */
   private findNextNoteGroup(currentTime: number): Note[] {
     // Find notes that haven't been processed yet
-    // We look ahead slightly to catch notes before they pass
     const futureNotes = this.currentNotes
       .filter(note => {
-        // Only consider notes that we haven't processed yet
-        // and that haven't passed by too much
-        return note.startTime >= currentTime - PianoPracticeApp.LOOK_AHEAD_MS &&
-               !this.processedWaitTimings.has(note.startTime);
+        // Only consider notes that haven't been processed yet
+        const isNotProcessed = !this.processedWaitTimings.has(note.startTime);
+
+        // CRITICAL FIX: Always reject notes that are too far in the past
+        // This prevents going backwards after unfreezing time
+        const MAX_PAST_TOLERANCE = 10; // Maximum 10ms in the past
+        const timeDiff = note.startTime - currentTime;
+        const isTooFarInPast = timeDiff < -MAX_PAST_TOLERANCE;
+
+        if (isTooFarInPast) {
+          return false; // Never go backwards more than 10ms
+        }
+
+        // If we just seeked, be STRICT: only allow future notes (no tolerance)
+        if (this.justSeeked) {
+          return isNotProcessed && note.startTime >= currentTime;
+        }
+
+        // Normal playback: allow small tolerance to catch notes that are
+        // just about to start (within LOOK_AHEAD_MS)
+        const tolerance = PianoPracticeApp.LOOK_AHEAD_MS;
+        const isInFuture = note.startTime >= currentTime - tolerance;
+
+        return isNotProcessed && isInFuture;
       })
       .sort((a, b) => a.startTime - b.startTime);
 
@@ -1574,6 +1616,13 @@ export class PianoPracticeApp {
     }
 
     const nextStartTime = futureNotes[0].startTime;
+
+    // Additional safety check: if the next note is in the past (beyond tolerance),
+    // mark it as processed to prevent infinite loops
+    if (nextStartTime < currentTime - PianoPracticeApp.LOOK_AHEAD_MS) {
+      this.processedWaitTimings.add(nextStartTime);
+      return []; // Don't enter wait state for this note
+    }
 
     // Get all notes with the same startTime (chord)
     return futureNotes.filter(note => note.startTime === nextStartTime);
@@ -1584,6 +1633,9 @@ export class PianoPracticeApp {
    */
   private enterWaitingState(noteGroup: Note[]): void {
     const startTime = noteGroup[0].startTime;
+
+    // Clear the justSeeked flag now that we've found the first note after seek
+    this.justSeeked = false;
 
     // Mark this timing as processed so we don't re-enter waiting state for it
     this.processedWaitTimings.add(startTime);
