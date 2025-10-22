@@ -458,6 +458,11 @@ export class PianoPracticeApp {
     this.lastTimingPitches.clear();
     this.processedWaitTimings.clear();
 
+    // シークバーを左端(0)にリセット
+    this.dom.seekBar.value = '0';
+    this.dom.currentTimeDisplay.textContent = '0:00';
+    this.dom.musicalPositionDisplay.textContent = '0.0';
+
     // カウントダウンを開始
     this.startCountdown();
   }
