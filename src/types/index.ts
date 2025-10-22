@@ -153,3 +153,59 @@ export interface BeatTimeConverter {
   convertMemo(songMemo: SongMemo): Memo;
   convertMemos(songMemos: SongMemo[]): Memo[];
 }
+
+// DOM Elements interface
+export interface DOMElements {
+  // Canvas
+  canvas: HTMLCanvasElement;
+  errorMessage: HTMLElement;
+  songTitle: HTMLElement;
+  fileInput: HTMLInputElement;
+
+  // コントロールボタン
+  playPauseBtn: HTMLButtonElement;
+  stopBtn: HTMLButtonElement;
+
+  // MIDI関連
+  midiStatus: HTMLElement;
+  midiStatusText: HTMLElement;
+  midiTooltip: HTMLElement;
+
+  // BPM関連
+  bpmSlider: HTMLInputElement;
+  bpmDisplay: HTMLElement;
+  bpmUpBtn: HTMLElement;
+  bpmDownBtn: HTMLElement;
+
+  // 音量関連
+  volumeSlider: HTMLInputElement;
+  volumeDisplay: HTMLElement;
+  muteBtn: HTMLElement;
+
+  // シークバー関連
+  seekBar: HTMLInputElement;
+  currentTimeDisplay: HTMLElement;
+  totalTimeDisplay: HTMLElement;
+  musicalPositionDisplay: HTMLElement;
+
+  // リピート関連
+  partialRepeatEnabled: HTMLInputElement;
+  setPointABtn: HTMLElement;
+  setPointAToStartBtn: HTMLElement;
+  setPointBBtn: HTMLElement;
+  setPointBToEndBtn: HTMLElement;
+  clearRepeatPointsBtn: HTMLElement;
+  pointAInput: HTMLInputElement;
+  pointBInput: HTMLInputElement;
+
+  // 参考画像関連
+  referenceImageArea: HTMLElement;
+  referenceImageToggle: HTMLElement;
+  referenceImageContent: HTMLElement;
+  toggleIcon: HTMLElement;
+  referenceImage: HTMLImageElement;
+
+  // ゲームモード関連
+  realtimeMode: HTMLElement;
+  waitMode: HTMLElement;
+}

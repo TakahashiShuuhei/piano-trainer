@@ -10,7 +10,8 @@ import {
   BeatTimeConverter as IBeatTimeConverter,
   GameMode,
   GameSettings,
-  WaitForInputState
+  WaitForInputState,
+  DOMElements
 } from '../types/index.js';
 import { MIDIInputManager } from '../components/MIDIInputManager';
 import { UIRenderer } from '../components/UIRenderer';
@@ -32,7 +33,9 @@ export class PianoPracticeApp {
   private midiManager!: IMIDIInputManager;
   private uiRenderer!: IUIRenderer;
 
-  private canvas!: HTMLCanvasElement;
+  // DOM要素への参照
+  private dom!: DOMElements;
+
   private isInitialized = false;
 
   // 音楽的タイミングシステム
@@ -104,10 +107,73 @@ export class PianoPracticeApp {
   }
 
   private bindDOMElements(): void {
-    this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-    if (!this.canvas) {
-      throw new Error('Canvas element not found');
-    }
+    // ヘルパー関数：要素を取得して型チェック
+    const getElement = <T extends HTMLElement>(id: string, type?: new () => T): T => {
+      const element = document.getElementById(id);
+      if (!element) {
+        throw new Error(`Element with id '${id}' not found`);
+      }
+      if (type && !(element instanceof type)) {
+        throw new Error(`Element with id '${id}' is not of expected type`);
+      }
+      return element as T;
+    };
+
+    // DOMElementsオブジェクトを構築
+    this.dom = {
+      // Canvas
+      canvas: getElement('gameCanvas', HTMLCanvasElement),
+      errorMessage: getElement('errorMessage'),
+      songTitle: getElement('songTitle'),
+      fileInput: getElement('fileInput', HTMLInputElement),
+
+      // コントロールボタン
+      playPauseBtn: getElement('playPauseBtn', HTMLButtonElement),
+      stopBtn: getElement('stopBtn', HTMLButtonElement),
+
+      // MIDI関連
+      midiStatus: getElement('midiStatus'),
+      midiStatusText: getElement('midiStatusText'),
+      midiTooltip: getElement('midiTooltip'),
+
+      // BPM関連
+      bpmSlider: getElement('bpmSlider', HTMLInputElement),
+      bpmDisplay: getElement('bpmDisplay'),
+      bpmUpBtn: getElement('bpmUp'),
+      bpmDownBtn: getElement('bpmDown'),
+
+      // 音量関連
+      volumeSlider: getElement('volumeSlider', HTMLInputElement),
+      volumeDisplay: getElement('volumeDisplay'),
+      muteBtn: getElement('muteBtn'),
+
+      // シークバー関連
+      seekBar: getElement('seekBar', HTMLInputElement),
+      currentTimeDisplay: getElement('currentTimeDisplay'),
+      totalTimeDisplay: getElement('totalTimeDisplay'),
+      musicalPositionDisplay: getElement('musicalPositionDisplay'),
+
+      // リピート関連
+      partialRepeatEnabled: getElement('partialRepeatEnabled', HTMLInputElement),
+      setPointABtn: getElement('setPointA'),
+      setPointAToStartBtn: getElement('setPointAToStart'),
+      setPointBBtn: getElement('setPointB'),
+      setPointBToEndBtn: getElement('setPointBToEnd'),
+      clearRepeatPointsBtn: getElement('clearRepeatPoints'),
+      pointAInput: getElement('pointAInput', HTMLInputElement),
+      pointBInput: getElement('pointBInput', HTMLInputElement),
+
+      // 参考画像関連
+      referenceImageArea: getElement('referenceImageArea'),
+      referenceImageToggle: getElement('referenceImageToggle'),
+      referenceImageContent: getElement('referenceImageContent'),
+      toggleIcon: getElement('toggleIcon'),
+      referenceImage: getElement('referenceImage', HTMLImageElement),
+
+      // ゲームモード関連
+      realtimeMode: getElement('realtimeMode'),
+      waitMode: getElement('waitMode')
+    };
   }
 
   private async initializeComponents(): Promise<void> {
@@ -121,7 +187,7 @@ export class PianoPracticeApp {
 
       // UIRendererの初期化
       this.uiRenderer = new UIRenderer();
-      this.uiRenderer.initCanvas(this.canvas);
+      this.uiRenderer.initCanvas(this.dom.canvas);
       this.uiRenderer.setTheme('dark'); // デフォルトテーマ
       this.uiRenderer.setBPM(this.currentBPM); // 初期BPMを設定
 
@@ -145,48 +211,31 @@ export class PianoPracticeApp {
     }
   }
 
-
-
   private setupEventListeners(): void {
     // MIDI接続ステータス（クリックで接続）
-    const midiStatus = document.getElementById('midiStatus');
-    if (midiStatus) {
-      midiStatus.addEventListener('click', () => {
-        // 未接続時のみ接続を試行
-        const isDisconnected = midiStatus.classList.contains('disconnected');
-        if (isDisconnected) {
-          this.handleMidiConnect();
-        }
-      });
-    }
+    this.dom.midiStatus.addEventListener('click', () => {
+      // 未接続時のみ接続を試行
+      const isDisconnected = this.dom.midiStatus.classList.contains('disconnected');
+      if (isDisconnected) {
+        this.handleMidiConnect();
+      }
+    });
 
     // ファイル読み込み
-    const fileInput = document.getElementById('fileInput') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.addEventListener('change', (event) => this.handleFileLoad(event));
-    }
+    this.dom.fileInput.addEventListener('change', (event) => this.handleFileLoad(event));
 
     // ゲーム制御ボタン（再生/一時停止統合）
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    if (playPauseBtn) {
-      playPauseBtn.addEventListener('click', () => {
-        if (this.currentGameState.phase === GamePhase.STOPPED) {
-          this.handleStart();
-        } else if (this.currentGameState.phase === GamePhase.PLAYING || this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
-          this.handlePause();
-        } else if (this.currentGameState.phase === GamePhase.PAUSED) {
-          this.handlePause(); // resume
-        }
-      });
-    }
+    this.dom.playPauseBtn.addEventListener('click', () => {
+      if (this.currentGameState.phase === GamePhase.STOPPED) {
+        this.handleStart();
+      } else if (this.currentGameState.phase === GamePhase.PLAYING || this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
+        this.handlePause();
+      } else if (this.currentGameState.phase === GamePhase.PAUSED) {
+        this.handlePause(); // resume
+      }
+    });
 
-    const stopBtn = document.getElementById('stopBtn');
-    if (stopBtn) {
-      stopBtn.addEventListener('click', () => this.handleStop());
-    }
-
-    // ウィンドウリサイズ
-    window.addEventListener('resize', () => this.handleResize());
+    this.dom.stopBtn.addEventListener('click', () => this.handleStop());
 
     // キーボード入力のフォールバック（MIDI未接続時用）
     document.addEventListener('keydown', (event) => this.handleKeyboardInput(event));
@@ -262,34 +311,22 @@ export class PianoPracticeApp {
    * 楽曲タイトルをUIに反映
    */
   private updateSongTitle(title: string): void {
-    const titleElement = document.getElementById('songTitle');
-    if (titleElement) {
-      titleElement.textContent = title;
-    }
+    this.dom.songTitle.textContent = title;
   }
 
   /**
    * 参考画像を表示
    */
   private updateReferenceImage(imageUrl: string): void {
-    const imageArea = document.getElementById('referenceImageArea');
-    const imageElement = document.getElementById('referenceImage') as HTMLImageElement;
-
-    if (imageArea && imageElement) {
-      imageElement.src = imageUrl;
-      imageArea.style.display = 'block';
-    }
+    this.dom.referenceImage.src = imageUrl;
+    this.dom.referenceImageArea.style.display = 'block';
   }
 
   /**
    * 参考画像を非表示
    */
   private hideReferenceImage(): void {
-    const imageArea = document.getElementById('referenceImageArea');
-
-    if (imageArea) {
-      imageArea.style.display = 'none';
-    }
+    this.dom.referenceImageArea.style.display = 'none';
   }
 
   /**
@@ -555,87 +592,67 @@ export class PianoPracticeApp {
     this.updateGameStateDisplay();
   }
 
-  private handleResize(): void {
-    // UIRendererは自動的にリサイズを処理するため、特別な処理は不要
-
-  }
-
   private updateMidiStatus(connected: boolean): void {
     // MIDI状態表示を更新
-    const midiStatus = document.getElementById('midiStatus');
-    const midiStatusText = document.getElementById('midiStatusText');
-    const midiTooltip = document.getElementById('midiTooltip');
-    const midiIcon = midiStatus?.querySelector('.midi-status-icon');
+    const midiIcon = this.dom.midiStatus.querySelector('.midi-status-icon');
 
-    if (midiStatus && midiIcon && midiStatusText) {
+    if (midiIcon) {
       if (connected) {
-        midiStatus.classList.remove('disconnected');
-        midiStatus.classList.add('connected');
+        this.dom.midiStatus.classList.remove('disconnected');
+        this.dom.midiStatus.classList.add('connected');
         midiIcon.textContent = '✓';
-        midiStatusText.textContent = 'MIDI接続済み';
-        if (midiTooltip) {
-          midiTooltip.innerHTML = 'MIDI機器が接続されています';
-        }
+        this.dom.midiStatusText.textContent = 'MIDI接続済み';
+        this.dom.midiTooltip.innerHTML = 'MIDI機器が接続されています';
         // 接続済みの場合はカーソルを通常に
-        midiStatus.style.cursor = 'default';
+        this.dom.midiStatus.style.cursor = 'default';
       } else {
-        midiStatus.classList.remove('connected');
-        midiStatus.classList.add('disconnected');
+        this.dom.midiStatus.classList.remove('connected');
+        this.dom.midiStatus.classList.add('disconnected');
         midiIcon.textContent = '⚠️';
-        midiStatusText.textContent = 'MIDI接続';
-        if (midiTooltip) {
-          midiTooltip.innerHTML = 'クリックで接続';
-        }
+        this.dom.midiStatusText.textContent = 'MIDI接続';
+        this.dom.midiTooltip.innerHTML = 'クリックで接続';
         // 未接続の場合はカーソルをポインターに
-        midiStatus.style.cursor = 'pointer';
+        this.dom.midiStatus.style.cursor = 'pointer';
       }
     }
 
     // 再生/一時停止ボタンは常に有効（MIDI接続なしでも楽曲再生とキーボード入力が可能）
-    const playPauseBtn = document.getElementById('playPauseBtn') as HTMLButtonElement;
-    if (playPauseBtn) {
-      playPauseBtn.disabled = false; // 常に有効
-    }
+    this.dom.playPauseBtn.disabled = false;
   }
 
   private updateGameState(state: GameState): void {
     // ボタンの状態更新（Font Awesomeアイコン版）
-    const playPauseBtn = document.getElementById('playPauseBtn') as HTMLButtonElement;
-    const stopBtn = document.getElementById('stopBtn') as HTMLButtonElement;
+    const icon = this.dom.playPauseBtn.querySelector('i');
+    if (!icon) return;
 
-    if (playPauseBtn && stopBtn) {
-      const icon = playPauseBtn.querySelector('i');
-      if (!icon) return;
+    switch (state.phase) {
+      case GamePhase.STOPPED:
+        this.dom.playPauseBtn.disabled = false;
+        icon.className = 'fas fa-play';
+        this.dom.playPauseBtn.title = '開始';
+        this.dom.stopBtn.disabled = true;
+        break;
 
-      switch (state.phase) {
-        case GamePhase.STOPPED:
-          playPauseBtn.disabled = false;
-          icon.className = 'fas fa-play';
-          playPauseBtn.title = '開始';
-          stopBtn.disabled = true;
-          break;
+      case GamePhase.COUNTDOWN:
+        this.dom.playPauseBtn.disabled = true;
+        icon.className = 'fas fa-play';
+        this.dom.stopBtn.disabled = false;
+        break;
 
-        case GamePhase.COUNTDOWN:
-          playPauseBtn.disabled = true;
-          icon.className = 'fas fa-play';
-          stopBtn.disabled = false;
-          break;
+      case GamePhase.PLAYING:
+      case GamePhase.WAITING_FOR_INPUT:
+        this.dom.playPauseBtn.disabled = false;
+        icon.className = 'fas fa-pause';
+        this.dom.playPauseBtn.title = '一時停止';
+        this.dom.stopBtn.disabled = false;
+        break;
 
-        case GamePhase.PLAYING:
-        case GamePhase.WAITING_FOR_INPUT:
-          playPauseBtn.disabled = false;
-          icon.className = 'fas fa-pause';
-          playPauseBtn.title = '一時停止';
-          stopBtn.disabled = false;
-          break;
-
-        case GamePhase.PAUSED:
-          playPauseBtn.disabled = false;
-          icon.className = 'fas fa-play';
-          playPauseBtn.title = '再開';
-          stopBtn.disabled = false;
-          break;
-      }
+      case GamePhase.PAUSED:
+        this.dom.playPauseBtn.disabled = false;
+        icon.className = 'fas fa-play';
+        this.dom.playPauseBtn.title = '再開';
+        this.dom.stopBtn.disabled = false;
+        break;
     }
   }
 
@@ -854,81 +871,60 @@ export class PianoPracticeApp {
   }
 
   private showError(message: string): void {
-    const errorElement = document.getElementById('errorMessage');
-    if (errorElement) {
-      errorElement.textContent = message;
-      errorElement.style.display = 'block';
-      errorElement.style.backgroundColor = '#f44336'; // 赤
-      setTimeout(() => {
-        errorElement.style.display = 'none';
-      }, 5000);
-    }
+    this.dom.errorMessage.textContent = message;
+    this.dom.errorMessage.style.display = 'block';
+    this.dom.errorMessage.style.backgroundColor = '#f44336'; // 赤
+    setTimeout(() => {
+      this.dom.errorMessage.style.display = 'none';
+    }, 5000);
   }
 
   private showSuccess(message: string): void {
-    const errorElement = document.getElementById('errorMessage');
-    if (errorElement) {
-      errorElement.textContent = message;
-      errorElement.style.display = 'block';
-      errorElement.style.backgroundColor = '#4caf50'; // 緑
-      setTimeout(() => {
-        errorElement.style.display = 'none';
-      }, 3000);
-    }
+    this.dom.errorMessage.textContent = message;
+    this.dom.errorMessage.style.display = 'block';
+    this.dom.errorMessage.style.backgroundColor = '#4caf50'; // 緑
+    setTimeout(() => {
+      this.dom.errorMessage.style.display = 'none';
+    }, 3000);
   }
 
   /**
    * BPM調整コントロールを設定
    */
   private setupBPMControls(): void {
-    const bpmSlider = document.getElementById('bpmSlider') as HTMLInputElement;
-    const bpmDisplay = document.getElementById('bpmDisplay');
-    const bpmUp = document.getElementById('bpmUp');
-    const bpmDown = document.getElementById('bpmDown');
+    // スライダーの変更イベント
+    this.dom.bpmSlider.addEventListener('input', (event) => {
+      const newBPM = parseInt((event.target as HTMLInputElement).value);
+      this.setBPM(newBPM);
+      this.updateBPMDisplay(newBPM);
+    });
 
-    if (bpmSlider && bpmDisplay) {
-      // スライダーの変更イベント
-      bpmSlider.addEventListener('input', (event) => {
-        const newBPM = parseInt((event.target as HTMLInputElement).value);
-        this.setBPM(newBPM);
-        this.updateBPMDisplay(newBPM);
-      });
+    // +ボタン
+    this.dom.bpmUpBtn.addEventListener('click', () => {
+      const newBPM = Math.min(200, this.currentBPM + 5);
+      this.setBPM(newBPM);
+      this.updateBPMDisplay(newBPM);
+      this.dom.bpmSlider.value = newBPM.toString();
+    });
 
-      // +ボタン
-      if (bpmUp) {
-        bpmUp.addEventListener('click', () => {
-          const newBPM = Math.min(200, this.currentBPM + 5);
-          this.setBPM(newBPM);
-          this.updateBPMDisplay(newBPM);
-          bpmSlider.value = newBPM.toString();
-        });
-      }
+    // -ボタン
+    this.dom.bpmDownBtn.addEventListener('click', () => {
+      const newBPM = Math.max(30, this.currentBPM - 5);
+      this.setBPM(newBPM);
+      this.updateBPMDisplay(newBPM);
+      this.dom.bpmSlider.value = newBPM.toString();
+    });
 
-      // -ボタン
-      if (bpmDown) {
-        bpmDown.addEventListener('click', () => {
-          const newBPM = Math.max(30, this.currentBPM - 5);
-          this.setBPM(newBPM);
-          this.updateBPMDisplay(newBPM);
-          bpmSlider.value = newBPM.toString();
-        });
-      }
-
-      // 初期表示を更新
-      this.updateBPMDisplay(this.currentBPM);
-      bpmSlider.value = this.currentBPM.toString();
-    }
+    // 初期表示を更新
+    this.updateBPMDisplay(this.currentBPM);
+    this.dom.bpmSlider.value = this.currentBPM.toString();
   }
 
   /**
    * BPM表示を更新
    */
   private updateBPMDisplay(bpm: number): void {
-    const bpmDisplay = document.getElementById('bpmDisplay');
-
-    if (bpmDisplay) {
-      bpmDisplay.textContent = bpm.toString();
-    }
+    this.dom.bpmDisplay.textContent = bpm.toString();
   }
 
   /**
@@ -1109,65 +1105,50 @@ export class PianoPracticeApp {
    * 音量調整コントロールを設定
    */
   private setupVolumeControls(): void {
-    const volumeSlider = document.getElementById('volumeSlider') as HTMLInputElement;
-    const volumeDisplay = document.getElementById('volumeDisplay');
-    const muteBtn = document.getElementById('muteBtn');
+    // スライダーの変更イベント
+    this.dom.volumeSlider.addEventListener('input', (event) => {
+      const volumePercent = parseInt((event.target as HTMLInputElement).value);
+      const volume = volumePercent / 100; // 0-1に変換
+      this.setAudioVolume(volume);
+      this.updateVolumeDisplay(volumePercent);
+    });
 
-    if (volumeSlider && volumeDisplay) {
-      // スライダーの変更イベント
-      volumeSlider.addEventListener('input', (event) => {
-        const volumePercent = parseInt((event.target as HTMLInputElement).value);
-        const volume = volumePercent / 100; // 0-1に変換
-        this.setAudioVolume(volume);
-        this.updateVolumeDisplay(volumePercent);
-      });
-
-      // 初期表示を更新
-      const initialVolume = Math.round(this.getAudioVolume() * 100);
-      volumeSlider.value = initialVolume.toString();
-      this.updateVolumeDisplay(initialVolume);
-    }
+    // 初期表示を更新
+    const initialVolume = Math.round(this.getAudioVolume() * 100);
+    this.dom.volumeSlider.value = initialVolume.toString();
+    this.updateVolumeDisplay(initialVolume);
 
     // ミュートボタン
-    if (muteBtn) {
-      muteBtn.addEventListener('click', async () => {
-        // オーディオコンテキストを開始（初回クリック時）
-        await this.audioFeedbackManager.startAudioContext();
+    this.dom.muteBtn.addEventListener('click', async () => {
+      // オーディオコンテキストを開始（初回クリック時）
+      await this.audioFeedbackManager.startAudioContext();
 
-        const isMuted = this.toggleAudioMute();
-        this.updateMuteButton(isMuted);
+      const isMuted = this.toggleAudioMute();
+      this.updateMuteButton(isMuted);
 
-        // テスト音を再生（ミュート解除時）
-        if (!isMuted) {
+      // テスト音を再生（ミュート解除時）
+      if (!isMuted) {
+        this.audioFeedbackManager.playNoteSound(60, 0.3); // C4
+      }
+    });
 
-          this.audioFeedbackManager.playNoteSound(60, 0.3); // C4
-        }
-      });
-
-      // 初期状態を更新
-      this.updateMuteButton(this.isAudioMuted());
-    }
+    // 初期状態を更新
+    this.updateMuteButton(this.isAudioMuted());
   }
 
   /**
    * 音量表示を更新
    */
   private updateVolumeDisplay(volumePercent: number): void {
-    const volumeDisplay = document.getElementById('volumeDisplay');
-    if (volumeDisplay) {
-      volumeDisplay.textContent = `${volumePercent}%`;
-    }
+    this.dom.volumeDisplay.textContent = `${volumePercent}%`;
   }
 
   /**
    * ミュートボタンの表示を更新
    */
   private updateMuteButton(isMuted: boolean): void {
-    const muteBtn = document.getElementById('muteBtn');
-    if (muteBtn) {
-      muteBtn.textContent = isMuted ? '🔇' : '🔊';
-      muteBtn.title = isMuted ? 'ミュート解除' : 'ミュート';
-    }
+    this.dom.muteBtn.textContent = isMuted ? '🔇' : '🔊';
+    this.dom.muteBtn.title = isMuted ? 'ミュート解除' : 'ミュート';
   }
 
   /**
@@ -1254,14 +1235,10 @@ export class PianoPracticeApp {
    * シークバーコントロールを設定
    */
   private setupSeekBarControls(): void {
-    const seekBar = document.getElementById('seekBar') as HTMLInputElement;
-
-    if (seekBar) {
-      seekBar.addEventListener('input', (event) => {
-        const progress = parseInt((event.target as HTMLInputElement).value) / 1000;
-        this.handleSeekBarChange(progress);
-      });
-    }
+    this.dom.seekBar.addEventListener('input', (event) => {
+      const progress = parseInt((event.target as HTMLInputElement).value) / 1000;
+      this.handleSeekBarChange(progress);
+    });
   }
 
   /**
@@ -1331,27 +1308,15 @@ export class PianoPracticeApp {
     const progress = Math.max(0, Math.min(1, currentTime / totalDuration));
 
     // シークバーの値を更新
-    const seekBar = document.getElementById('seekBar') as HTMLInputElement;
-    if (seekBar) {
-      seekBar.value = Math.round(progress * 1000).toString();
-    }
+    this.dom.seekBar.value = Math.round(progress * 1000).toString();
 
     // 時間表示を更新
-    const currentTimeDisplay = document.getElementById('currentTimeDisplay');
-    const totalTimeDisplay = document.getElementById('totalTimeDisplay');
-    if (currentTimeDisplay) {
-      currentTimeDisplay.textContent = TimeFormatter.formatTime(Math.max(0, currentTime));
-    }
-    if (totalTimeDisplay) {
-      totalTimeDisplay.textContent = TimeFormatter.formatTime(totalDuration);
-    }
+    this.dom.currentTimeDisplay.textContent = TimeFormatter.formatTime(Math.max(0, currentTime));
+    this.dom.totalTimeDisplay.textContent = TimeFormatter.formatTime(totalDuration);
 
     // 拍数表示を更新
-    const musicalPositionDisplay = document.getElementById('musicalPositionDisplay');
-    if (musicalPositionDisplay) {
-      const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
-      musicalPositionDisplay.textContent = currentPosition.toFixed(1);
-    }
+    const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+    this.dom.musicalPositionDisplay.textContent = currentPosition.toFixed(1);
   }
 
 
@@ -1359,72 +1324,47 @@ export class PianoPracticeApp {
    * 部分リピートコントロールを設定
    */
   private setupPartialRepeatControls(): void {
-    const partialRepeatEnabled = document.getElementById('partialRepeatEnabled') as HTMLInputElement;
-    const setPointA = document.getElementById('setPointA');
-    const setPointAToStart = document.getElementById('setPointAToStart');
-    const setPointB = document.getElementById('setPointB');
-    const setPointBToEnd = document.getElementById('setPointBToEnd');
-    const clearRepeatPoints = document.getElementById('clearRepeatPoints');
-    const pointAInput = document.getElementById('pointAInput') as HTMLInputElement;
-    const pointBInput = document.getElementById('pointBInput') as HTMLInputElement;
-
-    if (partialRepeatEnabled) {
-      partialRepeatEnabled.addEventListener('change', () => {
-        this.isPartialRepeatEnabled = partialRepeatEnabled.checked;
-        this.updateRepeatControlsState();
-      });
-      // 初期状態を設定
+    this.dom.partialRepeatEnabled.addEventListener('change', () => {
+      this.isPartialRepeatEnabled = this.dom.partialRepeatEnabled.checked;
       this.updateRepeatControlsState();
-    }
+    });
+    // 初期状態を設定
+    this.updateRepeatControlsState();
 
-    if (setPointA) {
-      setPointA.addEventListener('click', () => {
-        this.setRepeatPoint('start');
-      });
-    }
+    this.dom.setPointABtn.addEventListener('click', () => {
+      this.setRepeatPoint('start');
+    });
 
-    if (setPointAToStart) {
-      setPointAToStart.addEventListener('click', () => {
-        this.setRepeatPointToStart();
-      });
-    }
+    this.dom.setPointAToStartBtn.addEventListener('click', () => {
+      this.setRepeatPointToStart();
+    });
 
-    if (setPointB) {
-      setPointB.addEventListener('click', () => {
-        this.setRepeatPoint('end');
-      });
-    }
+    this.dom.setPointBBtn.addEventListener('click', () => {
+      this.setRepeatPoint('end');
+    });
 
-    if (setPointBToEnd) {
-      setPointBToEnd.addEventListener('click', () => {
-        this.setRepeatPointToEnd();
-      });
-    }
+    this.dom.setPointBToEndBtn.addEventListener('click', () => {
+      this.setRepeatPointToEnd();
+    });
 
-    if (clearRepeatPoints) {
-      clearRepeatPoints.addEventListener('click', () => {
-        this.clearRepeatPoints();
-      });
-    }
+    this.dom.clearRepeatPointsBtn.addEventListener('click', () => {
+      this.clearRepeatPoints();
+    });
 
     // 入力フィールドの変更イベント
-    if (pointAInput) {
-      pointAInput.addEventListener('change', () => {
-        const value = parseFloat(pointAInput.value);
-        if (!isNaN(value) && value >= 0) {
-          this.repeatStartBeat = value;
-        }
-      });
-    }
+    this.dom.pointAInput.addEventListener('change', () => {
+      const value = parseFloat(this.dom.pointAInput.value);
+      if (!isNaN(value) && value >= 0) {
+        this.repeatStartBeat = value;
+      }
+    });
 
-    if (pointBInput) {
-      pointBInput.addEventListener('change', () => {
-        const value = parseFloat(pointBInput.value);
-        if (!isNaN(value) && value >= 0) {
-          this.repeatEndBeat = value;
-        }
-      });
-    }
+    this.dom.pointBInput.addEventListener('change', () => {
+      const value = parseFloat(this.dom.pointBInput.value);
+      if (!isNaN(value) && value >= 0) {
+        this.repeatEndBeat = value;
+      }
+    });
   }
 
   /**
@@ -1440,24 +1380,18 @@ export class PianoPracticeApp {
 
     if (type === 'start') {
       this.repeatStartBeat = currentPosition;
-      const input = document.getElementById('pointAInput') as HTMLInputElement;
-      if (input) {
-        input.value = currentPosition.toFixed(1);
-        // アニメーションを適用
-        input.classList.remove('repeat-point-highlight');
-        void input.offsetWidth; // リフロー強制でアニメーションをリスタート
-        input.classList.add('repeat-point-highlight');
-      }
+      this.dom.pointAInput.value = currentPosition.toFixed(1);
+      // アニメーションを適用
+      this.dom.pointAInput.classList.remove('repeat-point-highlight');
+      void this.dom.pointAInput.offsetWidth; // リフロー強制でアニメーションをリスタート
+      this.dom.pointAInput.classList.add('repeat-point-highlight');
     } else {
       this.repeatEndBeat = currentPosition;
-      const input = document.getElementById('pointBInput') as HTMLInputElement;
-      if (input) {
-        input.value = currentPosition.toFixed(1);
-        // アニメーションを適用
-        input.classList.remove('repeat-point-highlight');
-        void input.offsetWidth; // リフロー強制でアニメーションをリスタート
-        input.classList.add('repeat-point-highlight');
-      }
+      this.dom.pointBInput.value = currentPosition.toFixed(1);
+      // アニメーションを適用
+      this.dom.pointBInput.classList.remove('repeat-point-highlight');
+      void this.dom.pointBInput.offsetWidth; // リフロー強制でアニメーションをリスタート
+      this.dom.pointBInput.classList.add('repeat-point-highlight');
     }
   }
 
@@ -1466,14 +1400,11 @@ export class PianoPracticeApp {
    */
   private setRepeatPointToStart(): void {
     this.repeatStartBeat = 0;
-    const input = document.getElementById('pointAInput') as HTMLInputElement;
-    if (input) {
-      input.value = '0.0';
-      // アニメーションを適用
-      input.classList.remove('repeat-point-highlight');
-      void input.offsetWidth;
-      input.classList.add('repeat-point-highlight');
-    }
+    this.dom.pointAInput.value = '0.0';
+    // アニメーションを適用
+    this.dom.pointAInput.classList.remove('repeat-point-highlight');
+    void this.dom.pointAInput.offsetWidth;
+    this.dom.pointAInput.classList.add('repeat-point-highlight');
   }
 
   /**
@@ -1495,14 +1426,11 @@ export class PianoPracticeApp {
     const lastNoteBeat = this.beatTimeConverter.msToBeats(lastNote.startTime + lastNote.duration);
 
     this.repeatEndBeat = lastNoteBeat;
-    const input = document.getElementById('pointBInput') as HTMLInputElement;
-    if (input) {
-      input.value = lastNoteBeat.toFixed(1);
-      // アニメーションを適用
-      input.classList.remove('repeat-point-highlight');
-      void input.offsetWidth;
-      input.classList.add('repeat-point-highlight');
-    }
+    this.dom.pointBInput.value = lastNoteBeat.toFixed(1);
+    // アニメーションを適用
+    this.dom.pointBInput.classList.remove('repeat-point-highlight');
+    void this.dom.pointBInput.offsetWidth;
+    this.dom.pointBInput.classList.add('repeat-point-highlight');
   }
 
   /**
@@ -1512,16 +1440,10 @@ export class PianoPracticeApp {
     this.repeatStartBeat = null;
     this.repeatEndBeat = null;
 
-    const pointAInput = document.getElementById('pointAInput') as HTMLInputElement;
-    const pointBInput = document.getElementById('pointBInput') as HTMLInputElement;
-    if (pointAInput) {
-      pointAInput.value = '';
-      pointAInput.classList.remove('repeat-point-highlight');
-    }
-    if (pointBInput) {
-      pointBInput.value = '';
-      pointBInput.classList.remove('repeat-point-highlight');
-    }
+    this.dom.pointAInput.value = '';
+    this.dom.pointAInput.classList.remove('repeat-point-highlight');
+    this.dom.pointBInput.value = '';
+    this.dom.pointBInput.classList.remove('repeat-point-highlight');
   }
 
   /**
@@ -1530,34 +1452,16 @@ export class PianoPracticeApp {
   private updateRepeatControlsState(): void {
     const isEnabled = this.isPartialRepeatEnabled;
 
-    // ボタンを取得
-    const buttons = [
-      document.getElementById('setPointA') as HTMLButtonElement,
-      document.getElementById('setPointAToStart') as HTMLButtonElement,
-      document.getElementById('setPointB') as HTMLButtonElement,
-      document.getElementById('setPointBToEnd') as HTMLButtonElement,
-      document.getElementById('clearRepeatPoints') as HTMLButtonElement,
-    ];
-
-    // 入力フィールドを取得
-    const inputs = [
-      document.getElementById('pointAInput') as HTMLInputElement,
-      document.getElementById('pointBInput') as HTMLInputElement,
-    ];
-
     // ボタンの有効/無効を切り替え
-    buttons.forEach(btn => {
-      if (btn) {
-        btn.disabled = !isEnabled;
-      }
-    });
+    (this.dom.setPointABtn as HTMLButtonElement).disabled = !isEnabled;
+    (this.dom.setPointAToStartBtn as HTMLButtonElement).disabled = !isEnabled;
+    (this.dom.setPointBBtn as HTMLButtonElement).disabled = !isEnabled;
+    (this.dom.setPointBToEndBtn as HTMLButtonElement).disabled = !isEnabled;
+    (this.dom.clearRepeatPointsBtn as HTMLButtonElement).disabled = !isEnabled;
 
     // 入力フィールドの有効/無効を切り替え
-    inputs.forEach(input => {
-      if (input) {
-        input.disabled = !isEnabled;
-      }
-    });
+    this.dom.pointAInput.disabled = !isEnabled;
+    this.dom.pointBInput.disabled = !isEnabled;
   }
 
 
@@ -1566,29 +1470,23 @@ export class PianoPracticeApp {
    * 参考画像トグルコントロールを設定
    */
   private setupReferenceImageToggle(): void {
-    const toggleButton = document.getElementById('referenceImageToggle');
-    const toggleIcon = document.getElementById('toggleIcon');
-    const imageContent = document.getElementById('referenceImageContent');
+    this.dom.referenceImageToggle.addEventListener('click', () => {
+      const isExpanded = this.dom.referenceImageContent.classList.contains('expanded');
 
-    if (toggleButton && toggleIcon && imageContent) {
-      toggleButton.addEventListener('click', () => {
-        const isExpanded = imageContent.classList.contains('expanded');
-
-        if (isExpanded) {
-          // 折りたたむ
-          imageContent.classList.remove('expanded');
-          imageContent.classList.add('collapsed');
-          toggleIcon.classList.remove('expanded');
-          toggleIcon.textContent = '▶';
-        } else {
-          // 展開する
-          imageContent.classList.remove('collapsed');
-          imageContent.classList.add('expanded');
-          toggleIcon.classList.add('expanded');
-          toggleIcon.textContent = '▼';
-        }
-      });
-    }
+      if (isExpanded) {
+        // 折りたたむ
+        this.dom.referenceImageContent.classList.remove('expanded');
+        this.dom.referenceImageContent.classList.add('collapsed');
+        this.dom.toggleIcon.classList.remove('expanded');
+        this.dom.toggleIcon.textContent = '▶';
+      } else {
+        // 展開する
+        this.dom.referenceImageContent.classList.remove('collapsed');
+        this.dom.referenceImageContent.classList.add('expanded');
+        this.dom.toggleIcon.classList.add('expanded');
+        this.dom.toggleIcon.textContent = '▼';
+      }
+    });
   }
 
   /**
@@ -1596,30 +1494,25 @@ export class PianoPracticeApp {
    */
   private setupGameModeControls(): void {
     // ラジオボタン風のモード選択
-    const realtimeMode = document.getElementById('realtimeMode');
-    const waitMode = document.getElementById('waitMode');
+    this.dom.realtimeMode.addEventListener('click', () => {
+      this.setGameMode('realtime');
+      this.dom.realtimeMode.classList.add('active');
+      this.dom.waitMode.classList.remove('active');
+    });
 
-    if (realtimeMode && waitMode) {
-      realtimeMode.addEventListener('click', () => {
-        this.setGameMode('realtime');
-        realtimeMode.classList.add('active');
-        waitMode.classList.remove('active');
-      });
+    this.dom.waitMode.addEventListener('click', () => {
+      this.setGameMode('wait-for-input');
+      this.dom.waitMode.classList.add('active');
+      this.dom.realtimeMode.classList.remove('active');
+    });
 
-      waitMode.addEventListener('click', () => {
-        this.setGameMode('wait-for-input');
-        waitMode.classList.add('active');
-        realtimeMode.classList.remove('active');
-      });
-
-      // 初期値を設定
-      if (this.gameSettings.gameMode === 'realtime') {
-        realtimeMode.classList.add('active');
-        waitMode.classList.remove('active');
-      } else {
-        waitMode.classList.add('active');
-        realtimeMode.classList.remove('active');
-      }
+    // 初期値を設定
+    if (this.gameSettings.gameMode === 'realtime') {
+      this.dom.realtimeMode.classList.add('active');
+      this.dom.waitMode.classList.remove('active');
+    } else {
+      this.dom.waitMode.classList.add('active');
+      this.dom.realtimeMode.classList.remove('active');
     }
   }
 
