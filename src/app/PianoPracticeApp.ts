@@ -668,10 +668,12 @@ export class PianoPracticeApp {
         // Boundary check for safety
         if (evaluation.hitNoteIndex < this.currentNotes.length) {
           const hitNote = this.currentNotes[evaluation.hitNoteIndex];
-          this.audioFeedbackManager.playNoteSound(
-            hitNote.pitch,
-            hitNote.duration / 1000
-          );
+          if (hitNote) {
+            this.audioFeedbackManager.playNoteSound(
+              hitNote.pitch,
+              hitNote.duration / 1000
+            );
+          }
         }
       }
 
@@ -1567,7 +1569,10 @@ export class PianoPracticeApp {
       return; // No more notes
     }
 
-    const nextStartTime = nextGroup[0].startTime;
+    const nextStartTime = nextGroup[0]?.startTime;
+    if (nextStartTime === undefined) {
+      return; // Safety check
+    }
 
     // Enter waiting state slightly before the note
     // This ensures we catch the note timing accurately
@@ -1615,7 +1620,10 @@ export class PianoPracticeApp {
       return [];
     }
 
-    const nextStartTime = futureNotes[0].startTime;
+    const nextStartTime = futureNotes[0]?.startTime;
+    if (nextStartTime === undefined) {
+      return []; // Safety check
+    }
 
     // Additional safety check: if the next note is in the past (beyond tolerance),
     // mark it as processed to prevent infinite loops
@@ -1632,7 +1640,12 @@ export class PianoPracticeApp {
    * Enter waiting state for a group of notes
    */
   private enterWaitingState(noteGroup: Note[]): void {
-    const startTime = noteGroup[0].startTime;
+    const firstNote = noteGroup[0];
+    if (!firstNote) {
+      return; // Safety check: empty noteGroup
+    }
+
+    const startTime = firstNote.startTime;
 
     // Clear the justSeeked flag now that we've found the first note after seek
     this.justSeeked = false;
