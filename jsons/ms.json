@@ -6494,7 +6494,7 @@
       "pitch": 59,
       "timing": {
         "beat": 127.5,
-        "duration": 0.5
+        "duration": 1.5
       },
       "velocity": 80
     },
@@ -6534,14 +6534,6 @@
       "pitch": 56,
       "timing": {
         "beat": 127.5,
-        "duration": 1.0
-      },
-      "velocity": 80
-    },
-    {
-      "pitch": 59,
-      "timing": {
-        "beat": 128.0,
         "duration": 1.0
       },
       "velocity": 80
