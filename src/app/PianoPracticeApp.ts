@@ -1419,19 +1419,19 @@ export class PianoPracticeApp {
    * 終了位置を楽曲の最後に設定
    */
   private setRepeatPointToEnd(): void {
-    if (this.currentNotes.length === 0) {
+    if (this.musicalNotes.length === 0) {
       this.showError('楽曲データが読み込まれていません');
       return;
     }
 
-    // 最後のノートの終了位置を計算
-    const lastNote = this.currentNotes[this.currentNotes.length - 1];
-    if (!lastNote) {
+    // 最後のノートの終了位置を計算（musicalNotesから取得）
+    const lastMusicalNote = this.musicalNotes[this.musicalNotes.length - 1];
+    if (!lastMusicalNote) {
       this.showError('楽曲データが正しく読み込まれていません');
       return;
     }
 
-    const lastNoteBeat = this.beatTimeConverter.msToBeats(lastNote.startTime + lastNote.duration);
+    const lastNoteBeat = lastMusicalNote.timing.beat + lastMusicalNote.timing.duration;
 
     this.repeatEndBeat = lastNoteBeat;
     this.dom.pointBInput.value = lastNoteBeat.toFixed(1);
