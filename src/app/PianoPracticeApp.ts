@@ -97,12 +97,6 @@ export class PianoPracticeApp {
       this.isInitialized = true;
       console.log('Piano Practice App initialized successfully');
 
-      // 初期化完了時に開始ボタンを有効化（MIDI接続なしでも使用可能）
-      const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
-      if (startBtn) {
-        startBtn.disabled = false;
-      }
-
     } catch (error) {
       console.error('Failed to initialize app:', error);
       this.showError('アプリケーションの初期化に失敗しました。');
