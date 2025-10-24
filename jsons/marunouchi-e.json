@@ -233,30 +233,6 @@
         "duration": 0.16666666666666666
       },
       "velocity": 80
-    },
-    {
-      "pitch": 61,
-      "timing": {
-        "beat": 4.0,
-        "duration": 0.5
-      },
-      "velocity": 80
-    },
-    {
-      "pitch": 66,
-      "timing": {
-        "beat": 4.0,
-        "duration": 0.5
-      },
-      "velocity": 80
-    },
-    {
-      "pitch": 69,
-      "timing": {
-        "beat": 4.0,
-        "duration": 0.5
-      },
-      "velocity": 80
     }
   ]
 }
