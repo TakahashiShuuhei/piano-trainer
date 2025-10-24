@@ -1253,6 +1253,9 @@ export class PianoPracticeApp {
     const totalDuration = lastNote.startTime + lastNote.duration;
     const targetTime = progress * totalDuration;
 
+    // 一時停止中かどうかを記憶
+    const wasPaused = this.currentGameState.phase === GamePhase.PAUSED;
+
     // Wait-for-inputモードの場合、時間の凍結を解除してからシーク
     if (this.currentGameState.phase === GamePhase.WAITING_FOR_INPUT) {
       this.musicalTimeManager.unfreezeTime();
@@ -1265,11 +1268,24 @@ export class PianoPracticeApp {
       this.musicalTimeManager.start();
     }
 
+    // 一時停止中の場合、一時的に再開してからシーク
+    if (wasPaused && this.musicalTimeManager.isPaused()) {
+      this.musicalTimeManager.resume();
+    }
+
     // シーク実行
     this.musicalTimeManager.seekToRealTime(targetTime);
 
     // シーク後の時刻を取得
     const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+
+    // currentGameState.currentTimeを更新（一時停止中でもUIに反映）
+    this.currentGameState.currentTime = seekedTime;
+
+    // 一時停止中だった場合、再度一時停止
+    if (wasPaused) {
+      this.musicalTimeManager.pause();
+    }
 
     // 新しいプレイセッションを開始（シーク後の時刻を渡す）
     this.scoreEvaluator.startNewPlaySession(seekedTime);
