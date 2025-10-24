@@ -35,9 +35,10 @@ export class MusicalTimeManager {
    */
   public pause(): void {
     if (this.pausedTime === 0) {
+      // 一時停止時の音楽的位置を記録（pausedTimeを設定する前に計算）
+      const realTime = this.getCurrentRealTime();
+      this.pausedMusicalPosition = this.realTimeToMusicalPosition(realTime);
       this.pausedTime = Date.now();
-      // 一時停止時の音楽的位置を記録
-      this.pausedMusicalPosition = this.getCurrentMusicalPosition();
     }
   }
 
