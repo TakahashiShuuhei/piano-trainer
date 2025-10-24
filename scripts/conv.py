@@ -47,6 +47,34 @@ class MusicXMLConverter:
     def duration_to_beats(self, duration: int) -> float:
         """Convert MusicXML duration to quarter note beats."""
         return duration / self.divisions
+
+    def round_beat(self, beat: float) -> float:
+        """Round beat value to remove floating point errors.
+
+        Rounds to the nearest common fraction:
+        - Integer (1.0, 2.0, etc.)
+        - Half (0.5, 1.5, etc.)
+        - Quarter (0.25, 0.75, 1.25, etc.)
+
+        If none of these are close enough, returns the original value.
+        """
+        # Try rounding to integer
+        rounded = round(beat)
+        if abs(beat - rounded) < 0.0001:
+            return float(rounded)
+
+        # Try rounding to 0.5
+        half_rounded = round(beat * 2) / 2
+        if abs(beat - half_rounded) < 0.0001:
+            return half_rounded
+
+        # Try rounding to 0.25
+        quarter_rounded = round(beat * 4) / 4
+        if abs(beat - quarter_rounded) < 0.0001:
+            return quarter_rounded
+
+        # Return original value if no close match
+        return beat
     
     def process_note_element(self, note_elem) -> Optional[Note]:
         """Process a single note element from MusicXML."""
@@ -251,8 +279,8 @@ class MusicXMLConverter:
             json_note = {
                 "pitch": note.pitch,
                 "timing": {
-                    "beat": note.beat,
-                    "duration": note.duration
+                    "beat": self.round_beat(note.beat),
+                    "duration": self.round_beat(note.duration)
                 },
                 "velocity": note.velocity
             }
