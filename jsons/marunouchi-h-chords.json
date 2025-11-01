@@ -1,6 +1,7 @@
 {
   "title": "4 Chord Progression Practice - Eb Version (1 Beat Each)",
   "bpm": 120,
+  "referenceImageUrl": "https://raw.githubusercontent.com/TakahashiShuuhei/files/refs/heads/main/ms-eb.jpg",
   "notes": [
     {"pitch": 39, "timing": {"beat": 0, "duration": 1}, "velocity": 80}, {"pitch": 51, "timing": {"beat": 0, "duration": 1}, "velocity": 80}, {"pitch": 55, "timing": {"beat": 0, "duration": 1}, "velocity": 80}, {"pitch": 58, "timing": {"beat": 0, "duration": 1}, "velocity": 80}, {"pitch": 62, "timing": {"beat": 0, "duration": 1}, "velocity": 80}, {"pitch": 65, "timing": {"beat": 0, "duration": 1}, "velocity": 80},
     {"pitch": 39, "timing": {"beat": 1, "duration": 1}, "velocity": 80}, {"pitch": 51, "timing": {"beat": 1, "duration": 1}, "velocity": 80}, {"pitch": 55, "timing": {"beat": 1, "duration": 1}, "velocity": 80}, {"pitch": 58, "timing": {"beat": 1, "duration": 1}, "velocity": 80}, {"pitch": 62, "timing": {"beat": 1, "duration": 1}, "velocity": 80}, {"pitch": 65, "timing": {"beat": 1, "duration": 1}, "velocity": 80},
