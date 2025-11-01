@@ -1652,7 +1652,10 @@ export class PianoPracticeApp {
 
     // Additional safety check: if the next note is in the past (beyond tolerance),
     // mark it as processed to prevent infinite loops
-    if (nextStartTime < currentTime - PianoPracticeApp.LOOK_AHEAD_MS) {
+    // BUT: Don't auto-process the very first note group (startTime = 0)
+    // This prevents the first notes from being auto-cleared at game start
+    const isFirstNoteGroup = nextStartTime === 0;
+    if (!isFirstNoteGroup && nextStartTime < currentTime - PianoPracticeApp.LOOK_AHEAD_MS) {
       this.processedWaitTimings.add(nextStartTime);
       return []; // Don't enter wait state for this note
     }
