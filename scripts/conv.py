@@ -36,43 +36,61 @@ def musicxml_to_json(musicxml_path):
     if tempo_marks:
         bpm = int(tempo_marks[0].number)
 
-    # 全音符を抽出
+    # パート別に音符を抽出
     notes_data = []
-    for element in score.flatten().notes:
-        if element.isNote:  # 単音の場合
-            note_dict = {
-                "pitch": element.pitch.midi,  # MIDIノート番号（0-127）
-                "timing": {
-                    "beat": float(element.offset),  # 四分音符単位の開始位置
-                    "duration": float(element.duration.quarterLength)  # 四分音符単位の長さ
-                }
-            }
 
-            # velocityがあれば追加（デフォルトは80なので、異なる場合のみ追加）
-            if hasattr(element, 'volume') and element.volume.velocity is not None:
-                velocity = int(element.volume.velocity)
-                if velocity != 80:
-                    note_dict["velocity"] = velocity
+    # パートが複数ある場合はパート番号から手を判定
+    parts = score.parts
+    num_parts = len(parts)
 
-            notes_data.append(note_dict)
+    for part_idx, part in enumerate(parts):
+        # パート番号から手を判定
+        # Part 0 = 右手（高音部）, Part 1 = 左手（低音部）
+        hand = "right" if part_idx == 0 else "left"
 
-        elif element.isChord:  # 和音の場合は各音符を展開
-            for pitch in element.pitches:
+        for element in part.flatten().notes:
+            if element.isNote:  # 単音の場合
                 note_dict = {
-                    "pitch": pitch.midi,
+                    "pitch": element.pitch.midi,  # MIDIノート番号（0-127）
                     "timing": {
-                        "beat": float(element.offset),
-                        "duration": float(element.duration.quarterLength)
+                        "beat": float(element.offset),  # 四分音符単位の開始位置
+                        "duration": float(element.duration.quarterLength)  # 四分音符単位の長さ
                     }
                 }
 
-                # 和音の場合もvelocityを確認
+                # velocityがあれば追加（デフォルトは80なので、異なる場合のみ追加）
                 if hasattr(element, 'volume') and element.volume.velocity is not None:
                     velocity = int(element.volume.velocity)
                     if velocity != 80:
                         note_dict["velocity"] = velocity
 
+                # handを追加（デフォルトは"right"なので、"left"の場合のみ追加）
+                if hand == "left":
+                    note_dict["hand"] = hand
+
                 notes_data.append(note_dict)
+
+            elif element.isChord:  # 和音の場合は各音符を展開
+                for pitch in element.pitches:
+                    note_dict = {
+                        "pitch": pitch.midi,
+                        "timing": {
+                            "beat": float(element.offset),
+                            "duration": float(element.duration.quarterLength)
+                        }
+                    }
+
+                    # 和音の場合もvelocityを確認
+                    if hasattr(element, 'volume') and element.volume.velocity is not None:
+                        velocity = int(element.volume.velocity)
+                        if velocity != 80:
+                            note_dict["velocity"] = velocity
+
+                    # handを追加（デフォルトは"right"なので、"left"の場合のみ追加）
+                    if hand == "left":
+                        note_dict["hand"] = hand
+
+                    notes_data.append(note_dict)
 
     # beatでソート（念のため）
     notes_data.sort(key=lambda x: x["timing"]["beat"])

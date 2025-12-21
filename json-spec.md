@@ -33,7 +33,8 @@ Piano Practice Appで使用する楽曲データのJSON仕様を定義します�
         "beat": 0,
         "duration": 1
       },
-      "velocity": 80
+      "velocity": 80,
+      "hand": "right"
     }
   ]
 }
@@ -56,6 +57,7 @@ Piano Practice Appで使用する楽曲データのJSON仕様を定義します�
 | `pitch` | number | ✅ | MIDIノート番号（0-127）<br>例: C4=60, A4=69 |
 | `timing` | Timing | ✅ | タイミング情報 |
 | `velocity` | number | ❌ | ベロシティ（0-127、デフォルト: 80） |
+| `hand` | string | ❌ | 演奏する手（`"left"` または `"right"`、デフォルト: `"right"`）<br>ピアノ譜の左手パート（低音部）・右手パート（高音部）を区別 |
 
 ### Timing オブジェクト
 
@@ -116,6 +118,21 @@ MIDIノート番号 = (オクターブ + 1) × 12 + 音程番号
     { "pitch": 60, "timing": { "beat": 0, "duration": 2 } },
     { "pitch": 64, "timing": { "beat": 0, "duration": 2 } },
     { "pitch": 67, "timing": { "beat": 0, "duration": 2 } }
+  ]
+}
+```
+
+### 4. 左手・右手パートの指定
+
+```json
+{
+  "title": "両手練習",
+  "bpm": 120,
+  "notes": [
+    { "pitch": 72, "timing": { "beat": 0, "duration": 1 }, "hand": "right" },
+    { "pitch": 67, "timing": { "beat": 1, "duration": 1 }, "hand": "right" },
+    { "pitch": 48, "timing": { "beat": 0, "duration": 2 }, "hand": "left" },
+    { "pitch": 43, "timing": { "beat": 2, "duration": 2 }, "hand": "left" }
   ]
 }
 ```
