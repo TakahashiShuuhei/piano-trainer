@@ -72,6 +72,9 @@ export class PianoPracticeApp {
     gameMode: 'realtime' // Default to real-time mode
   };
 
+  // Hand filter setting
+  private handFilter: 'both' | 'left' | 'right' = 'both';
+
   // Wait-for-input mode state
   private waitForInputState: WaitForInputState | null = null;
   // Track pitches from previous timing for re-press detection (C C problem)
@@ -174,7 +177,12 @@ export class PianoPracticeApp {
 
       // ゲームモード関連
       realtimeMode: getElement('realtimeMode'),
-      waitMode: getElement('waitMode')
+      waitMode: getElement('waitMode'),
+
+      // 手フィルター関連
+      handFilterBoth: getElement('handFilterBoth'),
+      handFilterRight: getElement('handFilterRight'),
+      handFilterLeft: getElement('handFilterLeft')
     };
   }
 
@@ -259,6 +267,9 @@ export class PianoPracticeApp {
 
     // ゲームモード選択コントロール
     this.setupGameModeControls();
+
+    // 手フィルター選択コントロール
+    this.setupHandFilterControls();
   }
 
   private async loadInitialContent(): Promise<void> {
@@ -323,6 +334,9 @@ export class PianoPracticeApp {
     } else {
       this.hideReferenceImage();
     }
+
+    // 手フィルターを適用
+    this.applyHandFilter();
   }
 
   /**
@@ -476,6 +490,9 @@ export class PianoPracticeApp {
     this.currentGameState.isPlaying = false;
     this.currentGameState.countdownValue = 4;
 
+    // 手フィルターボタンを無効化
+    this.updateHandFilterButtonState();
+
     // カウントダウン中にノートを表示するため、楽曲データを時間ベースに変換
     this.updateCurrentNotes();
 
@@ -591,6 +608,9 @@ export class PianoPracticeApp {
     this.waitForInputState = null;
     this.lastTimingPitches.clear();
     this.processedWaitTimings.clear();
+
+    // 手フィルターボタンを有効化
+    this.updateHandFilterButtonState();
 
     this.updateGameStateDisplay();
   }
@@ -836,9 +856,9 @@ export class PianoPracticeApp {
       console.error('サンプル楽曲の読み込みに失敗:', error);
       // フォールバック: 最低限のノートを設定
       this.musicalNotes = [
-        { pitch: 60, timing: { beat: 0, duration: 1 }, velocity: 80 },
-        { pitch: 62, timing: { beat: 1, duration: 1 }, velocity: 80 },
-        { pitch: 64, timing: { beat: 2, duration: 1 }, velocity: 80 },
+        { pitch: 60, timing: { beat: 0, duration: 1 }, velocity: 80, hand: 'right' },
+        { pitch: 62, timing: { beat: 1, duration: 1 }, velocity: 80, hand: 'right' },
+        { pitch: 64, timing: { beat: 2, duration: 1 }, velocity: 80, hand: 'right' },
       ];
       this.musicalMemos = [];
       this.updateSongTitle('基本練習');
@@ -849,7 +869,15 @@ export class PianoPracticeApp {
    * 音楽的ノートを時間ベースのノートに変換してcurrentNotesを更新
    */
   private updateCurrentNotes(): void {
-    const timeBasedNotes = this.beatTimeConverter.convertNotes(this.musicalNotes);
+    // 手フィルターを適用
+    let filteredNotes = this.musicalNotes;
+    if (this.handFilter === 'left') {
+      filteredNotes = this.musicalNotes.filter(note => note.hand === 'left');
+    } else if (this.handFilter === 'right') {
+      filteredNotes = this.musicalNotes.filter(note => note.hand === 'right');
+    }
+
+    const timeBasedNotes = this.beatTimeConverter.convertNotes(filteredNotes);
 
     // 相対時間として設定（ゲーム開始時刻は加算しない）
     this.currentNotes = timeBasedNotes.map(note => ({
@@ -1806,6 +1834,86 @@ export class PianoPracticeApp {
   /**
    * リソースのクリーンアップ
    */
+  /**
+   * 手フィルター選択コントロールを設定
+   */
+  private setupHandFilterControls(): void {
+    // ボタンクリックイベント
+    this.dom.handFilterBoth.addEventListener('click', () => {
+      if (this.currentGameState.phase !== GamePhase.STOPPED) return;
+      this.setHandFilter('both');
+      this.dom.handFilterBoth.classList.add('active');
+      this.dom.handFilterRight.classList.remove('active');
+      this.dom.handFilterLeft.classList.remove('active');
+    });
+
+    this.dom.handFilterRight.addEventListener('click', () => {
+      if (this.currentGameState.phase !== GamePhase.STOPPED) return;
+      this.setHandFilter('right');
+      this.dom.handFilterRight.classList.add('active');
+      this.dom.handFilterBoth.classList.remove('active');
+      this.dom.handFilterLeft.classList.remove('active');
+    });
+
+    this.dom.handFilterLeft.addEventListener('click', () => {
+      if (this.currentGameState.phase !== GamePhase.STOPPED) return;
+      this.setHandFilter('left');
+      this.dom.handFilterLeft.classList.add('active');
+      this.dom.handFilterBoth.classList.remove('active');
+      this.dom.handFilterRight.classList.remove('active');
+    });
+
+    // 初期値を設定
+    this.dom.handFilterBoth.classList.add('active');
+  }
+
+  /**
+   * 手フィルターを設定
+   */
+  private setHandFilter(filter: 'both' | 'left' | 'right'): void {
+    this.handFilter = filter;
+    // 現在のmusicalNotesを再適用してフィルタリング
+    this.applyHandFilter();
+  }
+
+  /**
+   * 手フィルターを適用してcurrentNotesを更新
+   */
+  private applyHandFilter(): void {
+    // musicalNotesをフィルタリング
+    let filteredNotes = this.musicalNotes;
+
+    if (this.handFilter === 'left') {
+      filteredNotes = this.musicalNotes.filter(note => note.hand === 'left');
+    } else if (this.handFilter === 'right') {
+      filteredNotes = this.musicalNotes.filter(note => note.hand === 'right');
+    }
+
+    // 時間ベースのノートに変換
+    this.currentNotes = this.beatTimeConverter.convertNotes(filteredNotes);
+
+    // スコア評価器をリセット（新しいノートセットに対応）
+    this.scoreEvaluator.reset();
+  }
+
+  /**
+   * 手フィルターボタンの有効/無効を更新
+   */
+  private updateHandFilterButtonState(): void {
+    const isStopped = this.currentGameState.phase === GamePhase.STOPPED;
+
+    // 停止中でない場合はボタンを無効化
+    const opacity = isStopped ? '' : '0.5';
+    const pointerEvents = isStopped ? '' : 'none';
+
+    this.dom.handFilterBoth.style.opacity = opacity;
+    this.dom.handFilterRight.style.opacity = opacity;
+    this.dom.handFilterLeft.style.opacity = opacity;
+    this.dom.handFilterBoth.style.pointerEvents = pointerEvents;
+    this.dom.handFilterRight.style.pointerEvents = pointerEvents;
+    this.dom.handFilterLeft.style.pointerEvents = pointerEvents;
+  }
+
   public destroy(): void {
     if (this.uiRenderer) {
       this.uiRenderer.destroy();

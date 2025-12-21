@@ -255,6 +255,13 @@ export class ContentLoader {
         throw new Error(`${notePrefix}: velocityは0-127の範囲で指定してください`);
       }
     }
+
+    // hand の検証（オプション）
+    if (note.hand !== undefined) {
+      if (note.hand !== 'left' && note.hand !== 'right') {
+        throw new Error(`${notePrefix}: handは'left'または'right'で指定してください`);
+      }
+    }
   }
   
   /**
@@ -300,7 +307,8 @@ export class ContentLoader {
         beat: songNote.timing.beat,
         duration: songNote.timing.duration || 1 // デフォルト値
       },
-      velocity: songNote.velocity || 80 // デフォルト値
+      velocity: songNote.velocity || 80, // デフォルト値
+      hand: songNote.hand || 'right' // デフォルト値
     }));
   }
   

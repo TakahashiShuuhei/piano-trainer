@@ -8,6 +8,7 @@ export interface MusicalNote {
   pitch: number;        // MIDI note number (0-127)
   timing: MusicalTiming;
   velocity: number;     // 0-127
+  hand: 'left' | 'right';  // Which hand plays this note (default: 'right')
 }
 
 // Legacy time-based note (for backward compatibility)
@@ -32,6 +33,7 @@ export interface SongNote {
   pitch: number;       // MIDI note number (0-127)
   timing: SongTiming;
   velocity?: number;   // デフォルト: 80
+  hand?: 'left' | 'right';  // デフォルト: 'right'
 }
 
 export interface SongTiming {
@@ -208,4 +210,9 @@ export interface DOMElements {
   // ゲームモード関連
   realtimeMode: HTMLElement;
   waitMode: HTMLElement;
+
+  // 手フィルター関連
+  handFilterBoth: HTMLElement;
+  handFilterRight: HTMLElement;
+  handFilterLeft: HTMLElement;
 }
