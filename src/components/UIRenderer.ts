@@ -30,6 +30,8 @@ export class UIRenderer {
       blackKey: '#333333',
       whiteKeyNote: '#4dabf7',
       blackKeyNote: '#ff9800',
+      rightHandNote: '#4dabf7',      // 右手: 青系
+      leftHandNote: '#ff6b9d',       // 左手: ピンク系
       timingLine: '#ffd700',
       noteTrail: 'rgba(77, 171, 247, 0.3)',
       chord: '#9c27b0'
@@ -47,6 +49,8 @@ export class UIRenderer {
       blackKey: '#2a2a2a',
       whiteKeyNote: '#4dabf7',
       blackKeyNote: '#ff9800',
+      rightHandNote: '#4dabf7',      // 右手: 青系
+      leftHandNote: '#ff6b9d',       // 左手: ピンク系
       timingLine: '#ffd700',
       noteTrail: 'rgba(77, 171, 247, 0.3)',
       chord: '#9c27b0'
@@ -466,8 +470,8 @@ export class UIRenderer {
         noteColor = currentColors.error;
         break;
       default:
-        // 通常のノート（ターゲット状態でも色は変更しない）
-        noteColor = isBlackKey ? currentColors.blackKeyNote : currentColors.whiteKeyNote;
+        // 通常のノート: 手に応じて色を変える
+        noteColor = note.hand === 'left' ? currentColors.leftHandNote : currentColors.rightHandNote;
     }
 
     // アクティブ状態の場合のみ光らせる（ターゲット状態では光らせない）

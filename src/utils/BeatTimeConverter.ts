@@ -64,12 +64,9 @@ export class BeatTimeConverter implements IBeatTimeConverter {
       pitch: musicalNote.pitch,
       startTime: this.beatsToMs(musicalNote.timing.beat),
       duration: this.beatsToMs(duration),
-      velocity: musicalNote.velocity
+      velocity: musicalNote.velocity,
+      hand: musicalNote.hand
     };
-
-
-
-
 
     return result;
   }
@@ -95,13 +92,10 @@ export class BeatTimeConverter implements IBeatTimeConverter {
         beat: this.msToBeats(note.startTime),
         duration: this.msToBeats(note.duration)
       },
-      velocity: note.velocity
+      velocity: note.velocity,
+      hand: note.hand
     };
-    
 
-    
-
-    
     return result;
   }
 

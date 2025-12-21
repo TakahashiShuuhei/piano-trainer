@@ -17,6 +17,7 @@ export interface Note {
   startTime: number;    // milliseconds from start
   duration: number;     // milliseconds
   velocity: number;     // 0-127
+  hand: 'left' | 'right';  // Which hand plays this note
 }
 
 
