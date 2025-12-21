@@ -7,6 +7,7 @@ import sys
 import os
 import tempfile
 import time
+import argparse
 from pathlib import Path
 
 def install_requirements():
@@ -23,17 +24,28 @@ def install_requirements():
             print(f"Installing {package}...")
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
 
-def play_mxl_file(file_path: str):
-    """MXLファイルを再生"""
+def play_mxl_file(file_path: str, speed: float = 1.0):
+    """MXLファイルを再生
+
+    Args:
+        file_path: MXLファイルのパス
+        speed: 再生速度の倍率（1.0 = 通常速度、2.0 = 2倍速、0.5 = 0.5倍速）
+    """
     try:
         from music21 import converter, midi
         import pygame
-        
+
         print(f"Loading {file_path}...")
-        
+
         # MXLファイルを読み込み
         score = converter.parse(file_path)
         print(f"✓ Loaded: {score.metadata.title if score.metadata and score.metadata.title else 'Untitled'}")
+
+        # 速度を変更
+        if speed != 1.0:
+            print(f"Adjusting speed to {speed}x...")
+            score = score.scaleOffsets(1/speed).scaleDurations(1/speed)
+            print(f"✓ Speed adjusted to {speed}x")
         
         # 一時MIDIファイルを作成
         with tempfile.NamedTemporaryFile(suffix='.mid', delete=False) as temp_file:
@@ -80,29 +92,46 @@ def play_mxl_file(file_path: str):
     return True
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python play_mxl.py <mxl_file>")
-        print("Example: python play_mxl.py 001.mxl")
+    parser = argparse.ArgumentParser(
+        description='MXLファイルを再生するスクリプト',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python play_mxl.py 001.mxl              # 通常速度で再生
+  python play_mxl.py 001.mxl --speed 1.5  # 1.5倍速で再生
+  python play_mxl.py 001.mxl --speed 0.8  # 0.8倍速で再生
+        """
+    )
+    parser.add_argument('file', help='MXLファイルのパス')
+    parser.add_argument('--speed', '-s', type=float, default=1.0,
+                        help='再生速度の倍率 (デフォルト: 1.0)')
+
+    args = parser.parse_args()
+
+    if not os.path.exists(args.file):
+        print(f"Error: File '{args.file}' not found")
         sys.exit(1)
-    
-    file_path = sys.argv[1]
-    
-    if not os.path.exists(file_path):
-        print(f"Error: File '{file_path}' not found")
-        sys.exit(1)
-    
+
     # ファイル拡張子をチェック
-    if not file_path.lower().endswith(('.mxl', '.xml', '.musicxml')):
+    if not args.file.lower().endswith(('.mxl', '.xml', '.musicxml')):
         print("Warning: File doesn't appear to be a MusicXML file")
-    
+
+    # 速度の妥当性チェック
+    if args.speed <= 0:
+        print("Error: Speed must be greater than 0")
+        sys.exit(1)
+
+    if args.speed < 0.1 or args.speed > 10.0:
+        print(f"Warning: Speed {args.speed}x is unusual (recommended range: 0.1 - 10.0)")
+
     try:
         # 必要なパッケージをチェック/インストール
         print("Checking required packages...")
         install_requirements()
-        
+
         # ファイルを再生
-        success = play_mxl_file(file_path)
-        
+        success = play_mxl_file(args.file, args.speed)
+
         if not success:
             sys.exit(1)
             
