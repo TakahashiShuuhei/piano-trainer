@@ -8,31 +8,34 @@
 MusicXMLファイルをJSONフォーマットに変換するスクリプト
 
 **機能:**
-- MusicXML (partwise形式) をアプリ用のJSONフォーマットに変換
-- タイ、和音、複数声部、backup/forward要素に対応
+- music21ライブラリを使用してMusicXMLファイルを解析
+- MXL（圧縮MusicXML）ファイルに対応
+- タイ、和音、テンポマークを自動処理
 - MIDI音高番号への変換
 - タイミング情報（拍位置、音長）の計算
 
-**注意:**
-- `.mxl`ファイル（圧縮形式）は直接読み込めません
-- `.mxl`ファイルを使用する場合は、事前に展開して中の`.xml`ファイルを指定してください
-
 **使用方法:**
 ```bash
-python conv.py <input.xml> [output.json]
+python conv.py <input_file> -o <output.json>
+python conv.py <input_file>  # 標準出力に表示
 ```
 
 **例:**
 ```bash
-# .mxlファイルを展開
-unzip score.mxl
+# MXLファイルを変換（圧縮形式に対応）
+python conv.py score.mxl -o output.json
 
-# 展開されたXMLファイルを変換
-python conv.py score/score.xml output.json
+# XMLファイルを変換
+python conv.py score.xml -o output.json
 
 # 標準出力に表示
-python conv.py score.xml
+python conv.py score.musicxml
 ```
+
+**対応フォーマット:**
+- .mxl (圧縮MusicXML)
+- .xml (MusicXML)
+- .musicxml
 
 **出力フォーマット:**
 ```json

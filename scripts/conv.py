@@ -1,361 +1,143 @@
 #!/usr/bin/env python3
 """
-MusicXML to JSON converter for Piano Practice App
+MusicXML to JSON Converter for Piano Practice App
 
-Converts MusicXML files to JSON format according to json-spec.md specification.
-Handles partwise format, backup/forward elements, ties, and chord processing.
+MusicXMLファイルをPiano Practice App用のJSON形式に変換します。
 """
 
-import xml.etree.ElementTree as ET
+import argparse
 import json
 import sys
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from pathlib import Path
+from music21 import converter, tempo
 
 
-@dataclass
-class Note:
-    """Represents a musical note with timing and pitch information."""
-    pitch: int  # MIDI note number
-    beat: float  # Start position in quarter notes
-    duration: float  # Length in quarter notes
-    velocity: int = 80
-    voice: str = "1"
-    staff: int = 1
+def musicxml_to_json(musicxml_path):
+    """
+    MusicXMLファイルをJSON形式に変換する
 
+    Args:
+        musicxml_path: MusicXMLファイルのパス
 
-class MusicXMLConverter:
-    """Converts MusicXML to JSON format for Piano Practice App."""
-    
-    def __init__(self):
-        self.divisions = 24  # Default divisions per quarter note
-        self.current_beat = 0.0
-        self.notes = []
-        self.active_ties = {}  # Track active ties by (pitch, voice, staff)
-        self.chord_start_beat = 0.0  # Track the start beat of current chord
-        self.voice_beats = {}  # Track beat position for each voice independently
-        
-    def pitch_to_midi(self, step: str, alter: int, octave: int) -> int:
-        """Convert MusicXML pitch to MIDI note number."""
-        # Map note names to semitone offsets
-        note_map = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
-        
-        # Calculate MIDI note number
-        midi_note = (octave + 1) * 12 + note_map[step] + alter
-        return midi_note
-    
-    def duration_to_beats(self, duration: int) -> float:
-        """Convert MusicXML duration to quarter note beats."""
-        return duration / self.divisions
+    Returns:
+        dict: JSON仕様に従った辞書
+    """
+    # MusicXMLファイルを読み込む
+    score = converter.parse(musicxml_path)
 
-    def round_beat(self, beat: float) -> float:
-        """Round beat value to remove floating point errors.
+    # メタデータを取得
+    title = "Untitled"
+    if score.metadata and score.metadata.title:
+        title = score.metadata.title
 
-        Rounds to the nearest common fraction:
-        - Integer (1.0, 2.0, etc.)
-        - Half (0.5, 1.5, etc.)
-        - Quarter (0.25, 0.75, 1.25, etc.)
+    # テンポ（BPM）を取得
+    bpm = 120  # デフォルト値
+    tempo_marks = score.flatten().getElementsByClass(tempo.MetronomeMark)
+    if tempo_marks:
+        bpm = int(tempo_marks[0].number)
 
-        If none of these are close enough, returns the original value.
-        """
-        # Try rounding to integer
-        rounded = round(beat)
-        if abs(beat - rounded) < 0.0001:
-            return float(rounded)
-
-        # Try rounding to 0.5
-        half_rounded = round(beat * 2) / 2
-        if abs(beat - half_rounded) < 0.0001:
-            return half_rounded
-
-        # Try rounding to 0.25
-        quarter_rounded = round(beat * 4) / 4
-        if abs(beat - quarter_rounded) < 0.0001:
-            return quarter_rounded
-
-        # Return original value if no close match
-        return beat
-    
-    def process_note_element(self, note_elem) -> Optional[Note]:
-        """Process a single note element from MusicXML."""
-        # Get voice and staff first for timing calculations
-        voice_elem = note_elem.find('voice')
-        voice = voice_elem.text if voice_elem is not None else "1"
-        
-        staff_elem = note_elem.find('staff')
-        staff = int(staff_elem.text) if staff_elem is not None else 1
-        
-        # Get duration (needed for both notes and rests)
-        duration_elem = note_elem.find('duration')
-        if duration_elem is None:
-            return None
-        duration = int(duration_elem.text)
-        duration_beats = self.duration_to_beats(duration)
-        
-        # Check if this is a rest
-        if note_elem.find('rest') is not None:
-            # For rests, we still need to advance the timing but don't create a note
-            return None
-            
-        # Get pitch information
-        pitch_elem = note_elem.find('pitch')
-        if pitch_elem is None:
-            return None
-            
-        step = pitch_elem.find('step').text
-        alter_elem = pitch_elem.find('alter')
-        alter = int(alter_elem.text) if alter_elem is not None else 0
-        octave = int(pitch_elem.find('octave').text)
-        
-        # Convert to MIDI note number
-        midi_pitch = self.pitch_to_midi(step, alter, octave)
-        
-        # Check if this is a chord note (starts at same time as previous note)
-        is_chord = note_elem.find('chord') is not None
-        
-        # Calculate beat position using voice-specific timing
-        voice_key = f"{voice}_{staff}"
-        if voice_key not in self.voice_beats:
-            self.voice_beats[voice_key] = self.current_beat
-            
-        beat_position = self.voice_beats[voice_key]
-        
-        # Create note object
-        note = Note(
-            pitch=midi_pitch,
-            beat=beat_position,
-            duration=duration_beats,
-            voice=voice,
-            staff=staff
-        )
-        
-        return note
-    
-    def process_tie(self, note_elem, note: Note):
-        """Process tie elements for the note."""
-        tie_key = (note.pitch, note.voice, note.staff)
-
-        # Check for tie stop first
-        tie_stop = note_elem.find('.//tie[@type="stop"]')
-        tie_start = note_elem.find('.//tie[@type="start"]')
-
-        if tie_stop is not None and tie_key in self.active_ties:
-            # Extend the duration of the tied note
-            tied_note = self.active_ties[tie_key]
-            tied_note.duration += note.duration
-
-            # Check if this note also starts a new tie
-            if tie_start is not None:
-                # This note both ends a tie AND starts a new tie
-                # We need to add this note as the start of the new tie
-                del self.active_ties[tie_key]
-                self.active_ties[tie_key] = note
-                return True  # Add this note as the start of new tie
-            else:
-                # Tie ends here
-                del self.active_ties[tie_key]
-
-            return False  # Don't add this note separately
-
-        # Check for tie start (only if not already processed as tie stop)
-        if tie_start is not None:
-            self.active_ties[tie_key] = note
-
-        return True  # Add this note
-    
-    def process_measure(self, measure_elem):
-        """Process a single measure from MusicXML."""
-        measure_start_beat = self.current_beat
-        measure_duration = 0.0  # Track the longest duration in this measure
-
-        # Clean up voice_beats from previous measure:
-        # Keep only voices that have progressed beyond the current measure start
-        voices_to_keep = {}
-        for voice_key, voice_beat in self.voice_beats.items():
-            if voice_beat >= measure_start_beat:
-                voices_to_keep[voice_key] = voice_beat
-        self.voice_beats = voices_to_keep
-
-        for elem in measure_elem:
-            if elem.tag == 'attributes':
-                # Update divisions if specified
-                divisions_elem = elem.find('divisions')
-                if divisions_elem is not None:
-                    self.divisions = int(divisions_elem.text)
-                    
-            elif elem.tag == 'note':
-                # Get voice and staff for timing management
-                voice_elem = elem.find('voice')
-                voice = voice_elem.text if voice_elem is not None else "1"
-                staff_elem = elem.find('staff')
-                staff = int(staff_elem.text) if staff_elem is not None else 1
-                voice_key = f"{voice}_{staff}"
-                
-                # Get duration for timing advancement
-                duration_elem = elem.find('duration')
-                if duration_elem is not None:
-                    duration = int(duration_elem.text)
-                    duration_beats = self.duration_to_beats(duration)
-                else:
-                    duration_beats = 0
-                
-                # Check if this is a chord note before processing
-                is_chord = elem.find('chord') is not None
-
-                # Initialize voice timing if not exists
-                if voice_key not in self.voice_beats:
-                    self.voice_beats[voice_key] = self.current_beat
-                
-                # If this is not a chord note, update the chord start beat
-                if not is_chord:
-                    self.chord_start_beat = self.voice_beats[voice_key]
-                
-                note = self.process_note_element(elem)
-                if note is not None:
-                    # For chord notes, use the chord start beat
-                    if is_chord:
-                        note.beat = self.chord_start_beat
-                    
-                    # Process ties
-                    should_add = self.process_tie(elem, note)
-                    
-                    if should_add:
-                        self.notes.append(note)
-                
-                # Update voice timing (for both notes and rests, but not for chord notes)
-                if not is_chord:
-                    self.voice_beats[voice_key] += duration_beats
-                    # Update global current_beat to the maximum of all voices
-                    self.current_beat = max(self.voice_beats.values())
-                    # Track measure duration
-                    current_position = self.current_beat - measure_start_beat
-                    measure_duration = max(measure_duration, current_position)
-                        
-            elif elem.tag == 'backup':
-                # Move beat counter backward
-                duration_elem = elem.find('duration')
-                if duration_elem is not None:
-                    backup_duration = int(duration_elem.text)
-                    backup_beats = self.duration_to_beats(backup_duration)
-                    # Reset current_beat for backup
-                    self.current_beat = measure_start_beat
-                    # Clean up voice_beats: remove voices that are behind current_beat after BACKUP
-                    # This allows voices that have progressed beyond measure_start_beat to continue
-                    voices_to_remove = []
-                    for voice_key, voice_beat in self.voice_beats.items():
-                        if voice_beat < self.current_beat:
-                            voices_to_remove.append(voice_key)
-                    for voice_key in voices_to_remove:
-                        del self.voice_beats[voice_key]
-                    
-            elif elem.tag == 'forward':
-                # Move beat counter forward for a specific voice
-                duration_elem = elem.find('duration')
-                if duration_elem is not None:
-                    forward_duration = int(duration_elem.text)
-                    forward_beats = self.duration_to_beats(forward_duration)
-
-                    # Get voice and staff from forward element
-                    voice_elem = elem.find('voice')
-                    voice = voice_elem.text if voice_elem is not None else "1"
-                    staff_elem = elem.find('staff')
-                    staff = int(staff_elem.text) if staff_elem is not None else 1
-                    voice_key = f"{voice}_{staff}"
-
-                    # Initialize voice timing if not exists
-                    if voice_key not in self.voice_beats:
-                        self.voice_beats[voice_key] = self.current_beat
-
-                    # Move forward only for this specific voice
-                    self.voice_beats[voice_key] += forward_beats
-                    # Update global current_beat to the maximum of all voices
-                    self.current_beat = max(self.voice_beats.values())
-        
-        # Ensure we advance to the end of the measure
-        if measure_duration > 0:
-            self.current_beat = measure_start_beat + measure_duration
-    
-    def convert_file(self, xml_file: str, output_file: str = None) -> Dict:
-        """Convert MusicXML file to JSON format."""
-        # Parse XML
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
-        
-        # Reset state
-        self.current_beat = 0.0
-        self.notes = []
-        self.active_ties = {}
-        self.voice_beats = {}
-        
-        # Get title from work element or use filename
-        title = "Untitled"
-        work_elem = root.find('work')
-        if work_elem is not None:
-            work_title = work_elem.find('work-title')
-            if work_title is not None:
-                title = work_title.text
-        
-        # Process all parts (usually just one for piano)
-        for part in root.findall('part'):
-            # Reset beat counter for each part
-            self.current_beat = 0.0
-            self.voice_beats = {}
-            
-            # Process all measures in the part
-            for measure in part.findall('measure'):
-                self.process_measure(measure)
-        
-        # Convert notes to JSON format
-        json_notes = []
-        for note in self.notes:
-            json_note = {
-                "pitch": note.pitch,
+    # 全音符を抽出
+    notes_data = []
+    for element in score.flatten().notes:
+        if element.isNote:  # 単音の場合
+            note_dict = {
+                "pitch": element.pitch.midi,  # MIDIノート番号（0-127）
                 "timing": {
-                    "beat": self.round_beat(note.beat),
-                    "duration": self.round_beat(note.duration)
-                },
-                "velocity": note.velocity
+                    "beat": float(element.offset),  # 四分音符単位の開始位置
+                    "duration": float(element.duration.quarterLength)  # 四分音符単位の長さ
+                }
             }
-            json_notes.append(json_note)
-        
-        # Sort notes by beat position
-        json_notes.sort(key=lambda x: x["timing"]["beat"])
-        
-        # Create final JSON structure
-        result = {
-            "title": title,
-            "bpm": 120,  # Default BPM
-            "notes": json_notes
-        }
-        
-        # Write to file if specified
-        if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(result, f, indent=2, ensure_ascii=False)
-        
-        return result
+
+            # velocityがあれば追加（デフォルトは80なので、異なる場合のみ追加）
+            if hasattr(element, 'volume') and element.volume.velocity is not None:
+                velocity = int(element.volume.velocity)
+                if velocity != 80:
+                    note_dict["velocity"] = velocity
+
+            notes_data.append(note_dict)
+
+        elif element.isChord:  # 和音の場合は各音符を展開
+            for pitch in element.pitches:
+                note_dict = {
+                    "pitch": pitch.midi,
+                    "timing": {
+                        "beat": float(element.offset),
+                        "duration": float(element.duration.quarterLength)
+                    }
+                }
+
+                # 和音の場合もvelocityを確認
+                if hasattr(element, 'volume') and element.volume.velocity is not None:
+                    velocity = int(element.volume.velocity)
+                    if velocity != 80:
+                        note_dict["velocity"] = velocity
+
+                notes_data.append(note_dict)
+
+    # beatでソート（念のため）
+    notes_data.sort(key=lambda x: x["timing"]["beat"])
+
+    # JSON形式で出力
+    result = {
+        "title": title,
+        "bpm": bpm,
+        "notes": notes_data
+    }
+
+    return result
 
 
 def main():
-    """Command line interface for the converter."""
-    if len(sys.argv) < 2:
-        print("Usage: python conv.py <input.xml> [output.json]")
+    """メイン処理"""
+    parser = argparse.ArgumentParser(
+        description='MusicXMLファイルをPiano Practice App用のJSON形式に変換します。',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用例:
+  %(prog)s input.musicxml -o output.json
+  %(prog)s song.xml
+        """
+    )
+
+    parser.add_argument(
+        'input',
+        type=str,
+        help='入力MusicXMLファイルのパス'
+    )
+
+    parser.add_argument(
+        '-o', '--output',
+        type=str,
+        default=None,
+        help='出力JSONファイルのパス（省略時は標準出力）'
+    )
+
+    args = parser.parse_args()
+
+    # 入力ファイルの存在確認
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"エラー: ファイルが見つかりません: {args.input}", file=sys.stderr)
         sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    
-    converter = MusicXMLConverter()
+
     try:
-        result = converter.convert_file(input_file, output_file)
-        
-        if output_file:
-            print(f"Converted {input_file} to {output_file}")
+        # 変換実行
+        result = musicxml_to_json(str(input_path))
+
+        # 出力
+        json_str = json.dumps(result, indent=2, ensure_ascii=False)
+
+        if args.output:
+            # ファイルに出力
+            output_path = Path(args.output)
+            output_path.write_text(json_str, encoding='utf-8')
+            print(f"変換完了: {args.output}")
         else:
-            print(json.dumps(result, indent=2, ensure_ascii=False))
-            
+            # 標準出力
+            print(json_str)
+
     except Exception as e:
-        print(f"Error converting file: {e}")
+        print(f"エラー: 変換中に問題が発生しました: {e}", file=sys.stderr)
         sys.exit(1)
 
 
