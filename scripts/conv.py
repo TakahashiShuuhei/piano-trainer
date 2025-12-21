@@ -134,30 +134,33 @@ class MusicXMLConverter:
     def process_tie(self, note_elem, note: Note):
         """Process tie elements for the note."""
         tie_key = (note.pitch, note.voice, note.staff)
-        
+
         # Check for tie stop first
         tie_stop = note_elem.find('.//tie[@type="stop"]')
         tie_start = note_elem.find('.//tie[@type="start"]')
-        
+
         if tie_stop is not None and tie_key in self.active_ties:
             # Extend the duration of the tied note
             tied_note = self.active_ties[tie_key]
             tied_note.duration += note.duration
-            
+
             # Check if this note also starts a new tie
             if tie_start is not None:
-                # This note continues the tie, keep the reference
-                pass
+                # This note both ends a tie AND starts a new tie
+                # We need to add this note as the start of the new tie
+                del self.active_ties[tie_key]
+                self.active_ties[tie_key] = note
+                return True  # Add this note as the start of new tie
             else:
                 # Tie ends here
                 del self.active_ties[tie_key]
-            
+
             return False  # Don't add this note separately
-        
+
         # Check for tie start (only if not already processed as tie stop)
         if tie_start is not None:
             self.active_ties[tie_key] = note
-            
+
         return True  # Add this note
     
     def process_measure(self, measure_elem):
@@ -228,16 +231,37 @@ class MusicXMLConverter:
                     backup_beats = self.duration_to_beats(backup_duration)
                     # Reset current_beat for backup
                     self.current_beat = measure_start_beat
-                    # Reset voice_beats for new voices that will start after backup
-                    # But keep existing voice timing intact
+                    # Clean up voice_beats: remove voices that are behind the measure start
+                    # This prevents old voice positions from affecting new measures
+                    voices_to_remove = []
+                    for voice_key, voice_beat in self.voice_beats.items():
+                        if voice_beat < measure_start_beat:
+                            voices_to_remove.append(voice_key)
+                    for voice_key in voices_to_remove:
+                        del self.voice_beats[voice_key]
                     
             elif elem.tag == 'forward':
-                # Move beat counter forward
+                # Move beat counter forward for a specific voice
                 duration_elem = elem.find('duration')
                 if duration_elem is not None:
                     forward_duration = int(duration_elem.text)
                     forward_beats = self.duration_to_beats(forward_duration)
-                    self.current_beat += forward_beats
+
+                    # Get voice and staff from forward element
+                    voice_elem = elem.find('voice')
+                    voice = voice_elem.text if voice_elem is not None else "1"
+                    staff_elem = elem.find('staff')
+                    staff = int(staff_elem.text) if staff_elem is not None else 1
+                    voice_key = f"{voice}_{staff}"
+
+                    # Initialize voice timing if not exists
+                    if voice_key not in self.voice_beats:
+                        self.voice_beats[voice_key] = self.current_beat
+
+                    # Move forward only for this specific voice
+                    self.voice_beats[voice_key] += forward_beats
+                    # Update global current_beat to the maximum of all voices
+                    self.current_beat = max(self.voice_beats.values())
         
         # Ensure we advance to the end of the measure
         if measure_duration > 0:
