@@ -54,7 +54,7 @@ describe('ContentLoader', () => {
       };
 
       expect(() => (loader as any).validateSongData(invalidData))
-        .toThrow('BPMは60-200の範囲で指定してください');
+        .toThrow('BPMは60-300の範囲で指定してください');
     });
 
     it('notesが配列でない場合エラーを投げる', () => {

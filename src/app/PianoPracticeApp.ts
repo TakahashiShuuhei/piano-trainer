@@ -899,7 +899,7 @@ export class PianoPracticeApp {
 
     // +ボタン
     this.dom.bpmUpBtn.addEventListener('click', () => {
-      const newBPM = Math.min(200, this.currentBPM + 5);
+      const newBPM = Math.min(300, this.currentBPM + 5);
       this.setBPM(newBPM);
       this.updateBPMDisplay(newBPM);
       this.dom.bpmSlider.value = newBPM.toString();

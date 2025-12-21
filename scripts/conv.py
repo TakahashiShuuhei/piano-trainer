@@ -167,7 +167,15 @@ class MusicXMLConverter:
         """Process a single measure from MusicXML."""
         measure_start_beat = self.current_beat
         measure_duration = 0.0  # Track the longest duration in this measure
-        
+
+        # Clean up voice_beats from previous measure:
+        # Keep only voices that have progressed beyond the current measure start
+        voices_to_keep = {}
+        for voice_key, voice_beat in self.voice_beats.items():
+            if voice_beat >= measure_start_beat:
+                voices_to_keep[voice_key] = voice_beat
+        self.voice_beats = voices_to_keep
+
         for elem in measure_elem:
             if elem.tag == 'attributes':
                 # Update divisions if specified
@@ -193,7 +201,7 @@ class MusicXMLConverter:
                 
                 # Check if this is a chord note before processing
                 is_chord = elem.find('chord') is not None
-                
+
                 # Initialize voice timing if not exists
                 if voice_key not in self.voice_beats:
                     self.voice_beats[voice_key] = self.current_beat
@@ -231,11 +239,11 @@ class MusicXMLConverter:
                     backup_beats = self.duration_to_beats(backup_duration)
                     # Reset current_beat for backup
                     self.current_beat = measure_start_beat
-                    # Clean up voice_beats: remove voices that are behind the measure start
-                    # This prevents old voice positions from affecting new measures
+                    # Clean up voice_beats: remove voices that are behind current_beat after BACKUP
+                    # This allows voices that have progressed beyond measure_start_beat to continue
                     voices_to_remove = []
                     for voice_key, voice_beat in self.voice_beats.items():
-                        if voice_beat < measure_start_beat:
+                        if voice_beat < self.current_beat:
                             voices_to_remove.append(voice_key)
                     for voice_key in voices_to_remove:
                         del self.voice_beats[voice_key]

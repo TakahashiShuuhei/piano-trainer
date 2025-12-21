@@ -175,8 +175,8 @@ export class ContentLoader {
     
     // bpm の検証（オプション）
     if (data.bpm !== undefined) {
-      if (typeof data.bpm !== 'number' || data.bpm < 60 || data.bpm > 200) {
-        throw new Error('BPMは60-200の範囲で指定してください');
+      if (typeof data.bpm !== 'number' || data.bpm < 60 || data.bpm > 300) {
+        throw new Error('BPMは60-300の範囲で指定してください');
       }
     }
     
