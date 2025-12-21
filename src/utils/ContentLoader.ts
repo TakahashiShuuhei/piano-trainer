@@ -38,7 +38,9 @@ export class ContentLoader {
           const jsonString = event.target?.result as string;
           const jsonData = JSON.parse(jsonString);
           const result = this.processSongData(jsonData);
-          resolve({ notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl });
+          resolve(result.referenceImageUrl
+            ? { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl }
+            : { notes: result.notes, memos: result.memos });
         } catch (error) {
           reject(new Error('ファイルの読み込みに失敗しました'));
         }
@@ -68,7 +70,9 @@ export class ContentLoader {
 
       const jsonData = await response.json();
       const result = this.processSongData(jsonData);
-      return { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl };
+      return result.referenceImageUrl
+        ? { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl }
+        : { notes: result.notes, memos: result.memos };
 
     } catch (error) {
       console.error('Failed to load song from URL:', error);
@@ -105,7 +109,9 @@ export class ContentLoader {
       const jsonString = this.decodeBase64UTF8(base64Data);
       const jsonData = JSON.parse(jsonString);
       const result = this.processSongData(jsonData);
-      return { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl };
+      return result.referenceImageUrl
+        ? { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl }
+        : { notes: result.notes, memos: result.memos };
 
     } catch (error) {
       console.error('Failed to decode base64 data:', error);
@@ -157,7 +163,9 @@ export class ContentLoader {
     // referenceImageUrlを取得（存在しない場合はundefined）
     const referenceImageUrl = songData.referenceImageUrl;
 
-    return { notes, memos, referenceImageUrl };
+    return referenceImageUrl
+      ? { notes, memos, referenceImageUrl }
+      : { notes, memos };
   }
   
   /**
