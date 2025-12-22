@@ -470,8 +470,14 @@ export class UIRenderer {
         noteColor = currentColors.error;
         break;
       default:
-        // 通常のノート: 手に応じて色を変える
-        noteColor = note.hand === 'left' ? currentColors.leftHandNote : currentColors.rightHandNote;
+        // 通常のノート: 手と鍵盤タイプに応じて色を変える
+        if (note.hand === 'left') {
+          // 左手: ピンク系
+          noteColor = isBlackKey ? '#ff8fb3' : '#ff6b9d';  // 黒鍵は少し明るく
+        } else {
+          // 右手: 青系
+          noteColor = isBlackKey ? '#74c0fc' : '#4dabf7';  // 黒鍵は少し明るく
+        }
     }
 
     // アクティブ状態の場合のみ光らせる（ターゲット状態では光らせない）
