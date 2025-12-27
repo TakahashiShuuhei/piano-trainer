@@ -1,4 +1,3 @@
-const Tone = require('tone');
 import { MIDIInputManager as IMIDIInputManager } from '../types/index.js';
 
 export class MIDIInputManager implements IMIDIInputManager {
@@ -79,30 +78,14 @@ export class MIDIInputManager implements IMIDIInputManager {
   }
 
   public getTransportTime(): number {
-    // Tone.js Transport の現在時刻を取得
-    try {
-      return Tone.getTransport().seconds;
-    } catch (error) {
-      console.warn('Failed to get Transport time, using fallback:', error);
-      return performance.now() / 1000;
-    }
+    // パフォーマンスタイマーを使用（秒単位）
+    return performance.now() / 1000;
   }
 
   public convertMidiTimeToTransportTime(midiTimestamp: number): number {
-    // MIDIタイムスタンプをTone.js Transport時間に変換
-    // Web MIDI APIのタイムスタンプは performance.now() ベース
-    // Tone.js は AudioContext.currentTime ベース
-    try {
-      const performanceNow = performance.now();
-      const context = Tone.getContext();
-      const audioContextTime = context.currentTime;
-      const timeDiff = (midiTimestamp - performanceNow) / 1000; // ミリ秒を秒に変換
-
-      return audioContextTime + timeDiff;
-    } catch (error) {
-      console.warn('Failed to convert MIDI time, using fallback:', error);
-      return midiTimestamp / 1000;
-    }
+    // MIDIタイムスタンプをパフォーマンスタイマーに変換
+    // Web MIDI APIのタイムスタンプは performance.now() ベース（ミリ秒）
+    return midiTimestamp / 1000; // 秒に変換
   }
 
   public disconnect(): void {
@@ -163,8 +146,8 @@ export class MIDIInputManager implements IMIDIInputManager {
       const note = data[1]!;
       const velocity = data[2]!;
 
-      // Tone.jsの現在時刻を取得（フォールバック付き）
-      const toneTime = performance.now() / 1000; // Tone.now() の代替
+      // 現在時刻を取得（秒単位）
+      const toneTime = performance.now() / 1000;
 
       switch (command) {
         case 0x9: // Note On

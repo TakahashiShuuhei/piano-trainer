@@ -60,8 +60,11 @@ JSON楽曲データ編集ユーティリティ
 
 **機能:**
 - 指定した小節範囲の抽出（beat位置を自動調整）
+- 指定したbeat範囲の直接抽出
 - 音高による音符のフィルタリング
 - 右手/左手パートの抽出（練習用）
+  - **handフィールド優先**: JSONにhandフィールドがあればそれを使用
+  - **音高フォールバック**: handフィールドがない場合は音高で判定
 
 **使用方法:**
 ```bash
@@ -69,11 +72,17 @@ python edit_json.py <input.json> -o <output.json> [オプション]
 ```
 
 **主なオプション:**
+
+*範囲抽出:*
 - `--measures START END`: 小節範囲を抽出（1から開始）
 - `--beats N`: 1小節の拍数（デフォルト: 4）
-- `--right-hand`: 右手パート（高音部）のみ抽出
-- `--left-hand`: 左手パート（低音部）のみ抽出
-- `--threshold N`: 右手/左手の閾値となるMIDI音高（デフォルト: 60 = C4）
+- `--beat-range START END`: beat範囲を直接指定して抽出（0から開始、終了位置は含まない）
+
+*音高フィルタリング:*
+- `--right-hand`: 右手パート（高音部）のみ抽出（handフィールド優先）
+- `--left-hand`: 左手パート（低音部）のみ抽出（handフィールド優先）
+- `--threshold N`: 右手/左手の閾値となるMIDI音高（デフォルト: 60 = C4）handフィールドがない場合のフォールバック
+- `--use-pitch-threshold`: handフィールドを無視して音高のみで判定
 - `--min-pitch N`: 最小MIDI音高
 - `--max-pitch N`: 最大MIDI音高
 
@@ -85,20 +94,29 @@ python edit_json.py input.json -o output.json --measures 3 8
 # 3-8小節を抽出（1小節=3拍の曲）
 python edit_json.py input.json -o output.json --measures 3 8 --beats 3
 
-# 右手パートのみ抽出（C4=60以上）
+# beat 8.0から16.0までを抽出
+python edit_json.py input.json -o output.json --beat-range 8.0 16.0
+
+# 右手パートのみ抽出（handフィールド優先、なければC4=60以上）
 python edit_json.py input.json -o output.json --right-hand
 
-# 左手パートのみ抽出（C4=60未満）
+# 左手パートのみ抽出（handフィールド優先、なければC4=60未満）
 python edit_json.py input.json -o output.json --left-hand
 
-# カスタム閾値で左手抽出（A3=57未満）
+# カスタム閾値で左手抽出（handフィールド優先、なければA3=57未満）
 python edit_json.py input.json -o output.json --left-hand --threshold 57
+
+# handフィールドを無視して音高のみで判定（後方互換性）
+python edit_json.py input.json -o output.json --right-hand --use-pitch-threshold
 
 # 音高範囲で抽出（C3=48からC5=72まで）
 python edit_json.py input.json -o output.json --min-pitch 48 --max-pitch 72
 
 # 組み合わせ: 3-8小節の右手パートのみ
 python edit_json.py input.json -o output.json --measures 3 8 --right-hand
+
+# 組み合わせ: beat 8.0から16.0までの左手パートのみ
+python edit_json.py input.json -o output.json --beat-range 8.0 16.0 --left-hand
 ```
 
 ### play_mxl.py

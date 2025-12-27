@@ -9,9 +9,6 @@
     "serve": "http-server dist --cors",
     "test": "jest"
   },
-  "dependencies": {
-    "tone": "^14.7.77"
-  },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
     "@types/jest": "^29.5.14",
@@ -28,7 +25,7 @@
     "midi",
     "music",
     "practice",
-    "tone.js"
+    "web-audio"
   ],
   "author": "",
   "license": "MIT"
