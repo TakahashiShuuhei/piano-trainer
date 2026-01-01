@@ -1,6 +1,6 @@
 /**
- * 音声フィードバック管理クラス（軽量版 - Web Audio APIのみ使用）
- * Tone.jsを使わず、ネイティブWeb Audio APIで最小限の実装
+ * 音声フィードバック管理クラス（Web Audio APIのみ使用）
+ * サンプルベースのピアノ音源とオシレーターベースのシンセ音源に対応
  * タブレット・モバイル対応を重視
  */
 export class AudioFeedbackManager {
@@ -11,9 +11,18 @@ export class AudioFeedbackManager {
 
   // アクティブな音源を追跡して、適切にクリーンアップ
   private activeOscillators: Set<OscillatorNode> = new Set();
+  private activeBufferSources: Set<AudioBufferSourceNode> = new Set();
 
   // 同時発音数の制限（タブレット対応）
   private readonly MAX_VOICES = 16;
+
+  // サンプルベースのピアノ音源
+  private sampleBuffers: Map<number, AudioBuffer> = new Map();
+  private useSamples: boolean = true; // デフォルトでサンプル音源を使用
+  private samplesLoaded: boolean = false;
+
+  // ピアノサンプルのMIDI番号（C2=24, C3=36, C4=48, C5=60, C6=72, C7=84）
+  private readonly SAMPLE_NOTES = [24, 36, 48, 60, 72, 84];
 
   constructor() {
     // 初期化はユーザージェスチャー後に遅延実行
@@ -37,6 +46,12 @@ export class AudioFeedbackManager {
 
       this.isInitialized = true;
       console.log('Web Audio API initialized successfully');
+
+      // サンプル音源を読み込み（バックグラウンドで実行）
+      this.loadPianoSamples().catch(error => {
+        console.warn('Failed to load piano samples, falling back to oscillator:', error);
+        this.useSamples = false; // サンプル読み込み失敗時はオシレーターにフォールバック
+      });
     } catch (error) {
       console.error('Failed to initialize Web Audio API:', error);
       this.isInitialized = false;
@@ -45,12 +60,180 @@ export class AudioFeedbackManager {
   }
 
   /**
-   * 正解時にノートの音程を再生（軽量版）
+   * ピアノサンプルを読み込み
+   */
+  private async loadPianoSamples(): Promise<void> {
+    if (!this.audioContext) {
+      throw new Error('AudioContext is not initialized');
+    }
+
+    console.log('Loading piano samples...');
+
+    const loadPromises = this.SAMPLE_NOTES.map(async (midiNote) => {
+      // MIDI番号からオクターブ番号を計算
+      // C2 = MIDI 24 → 24/12 = 2
+      // C3 = MIDI 36 → 36/12 = 3
+      const octave = Math.floor(midiNote / 12);
+      const url = `/audio/C${octave}v10.mp3`;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
+        this.sampleBuffers.set(midiNote, audioBuffer);
+        console.log(`Loaded sample: ${url} (MIDI ${midiNote})`);
+      } catch (error) {
+        console.error(`Failed to load sample ${url}:`, error);
+        throw error;
+      }
+    });
+
+    await Promise.all(loadPromises);
+    this.samplesLoaded = true;
+    console.log('All piano samples loaded successfully');
+  }
+
+  /**
+   * 指定されたMIDI番号に最も近いサンプルを見つける
+   */
+  private findClosestSample(midiNote: number): { sampleNote: number; detune: number } | null {
+    if (this.sampleBuffers.size === 0) {
+      return null;
+    }
+
+    // 最も近いサンプルを探す
+    let closestNote = this.SAMPLE_NOTES[0]!;
+    let minDistance = Math.abs(midiNote - closestNote);
+
+    for (const sampleNote of this.SAMPLE_NOTES) {
+      const distance = Math.abs(midiNote - sampleNote);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestNote = sampleNote;
+      }
+    }
+
+    // デチューン値を計算（セント単位: 100セント = 1半音）
+    const detune = (midiNote - closestNote) * 100;
+
+    return { sampleNote: closestNote, detune };
+  }
+
+  /**
+   * ノートの音程を再生（サンプルベースまたはオシレーターベース）
    */
   public playNoteSound(midiNote: number, duration: number = 0.5): void {
     if (this.isMuted || !this.isInitialized || !this.audioContext) {
       return;
     }
+
+    // サンプルが読み込み済みで、サンプル使用モードの場合
+    if (this.useSamples && this.samplesLoaded) {
+      this.playSampleNote(midiNote, duration);
+    } else {
+      // フォールバック: オシレーター方式
+      this.playOscillatorNote(midiNote, duration);
+    }
+  }
+
+  /**
+   * サンプルベースでノートを再生
+   */
+  private playSampleNote(midiNote: number, duration: number): void {
+    if (!this.audioContext) return;
+
+    try {
+      // 同時発音数の制限
+      if (this.activeBufferSources.size >= this.MAX_VOICES) {
+        console.warn(`Max voices (${this.MAX_VOICES}) reached, skipping note`);
+        return;
+      }
+
+      const sampleInfo = this.findClosestSample(midiNote);
+      if (!sampleInfo) {
+        console.warn('No sample found, falling back to oscillator');
+        this.playOscillatorNote(midiNote, duration);
+        return;
+      }
+
+      const audioBuffer = this.sampleBuffers.get(sampleInfo.sampleNote);
+      if (!audioBuffer) {
+        console.warn(`Sample buffer not found for MIDI ${sampleInfo.sampleNote}`);
+        this.playOscillatorNote(midiNote, duration);
+        return;
+      }
+
+      const currentTime = this.audioContext.currentTime;
+
+      // AudioBufferSourceNodeを作成
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+
+      // ゲインノードを作成（音量調整用）
+      const gainNode = this.audioContext.createGain();
+
+      // 接続: ソース -> ゲイン -> 出力
+      source.connect(gainNode);
+      gainNode.connect(this.audioContext.destination);
+
+      // ピッチシフト（デチューン）を適用
+      if (source.detune) {
+        source.detune.setValueAtTime(sampleInfo.detune, currentTime);
+      } else {
+        // 古いブラウザ用フォールバック: playbackRateで調整
+        const playbackRate = Math.pow(2, sampleInfo.detune / 1200);
+        source.playbackRate.setValueAtTime(playbackRate, currentTime);
+      }
+
+      // エンベロープ（音量の時間変化）
+      const attackTime = 0.01; // 10ms
+      const releaseTime = 0.1; // 100ms
+      const peakVolume = this.volume;
+
+      gainNode.gain.setValueAtTime(0, currentTime);
+      gainNode.gain.linearRampToValueAtTime(peakVolume, currentTime + attackTime);
+
+      // サンプルが短い場合に備えて、duration と audioBuffer.duration の短い方を使用
+      const actualDuration = Math.min(duration, audioBuffer.duration);
+
+      if (actualDuration > releaseTime) {
+        gainNode.gain.setValueAtTime(peakVolume, currentTime + actualDuration - releaseTime);
+        gainNode.gain.linearRampToValueAtTime(0, currentTime + actualDuration);
+      } else {
+        // durationが短すぎる場合は即座にフェードアウト
+        gainNode.gain.linearRampToValueAtTime(0, currentTime + actualDuration);
+      }
+
+      // 再生
+      source.start(currentTime);
+      source.stop(currentTime + actualDuration);
+
+      // アクティブリストに追加
+      this.activeBufferSources.add(source);
+
+      // 停止後にクリーンアップ
+      source.onended = () => {
+        source.disconnect();
+        gainNode.disconnect();
+        this.activeBufferSources.delete(source);
+      };
+
+    } catch (error) {
+      console.error('Failed to play sample note:', error);
+      // エラー時はオシレーターにフォールバック
+      this.playOscillatorNote(midiNote, duration);
+    }
+  }
+
+  /**
+   * オシレーターベースでノートを再生（従来の方式）
+   */
+  private playOscillatorNote(midiNote: number, duration: number): void {
+    if (!this.audioContext) return;
 
     try {
       // 同時発音数の制限
@@ -101,7 +284,7 @@ export class AudioFeedbackManager {
       };
 
     } catch (error) {
-      console.error('Failed to play note:', error);
+      console.error('Failed to play oscillator note:', error);
     }
   }
 
@@ -284,11 +467,26 @@ export class AudioFeedbackManager {
   }
 
   /**
+   * サンプル音源とオシレーター音源を切り替え
+   */
+  public setUseSamples(useSamples: boolean): void {
+    this.useSamples = useSamples;
+    console.log(`Audio mode changed to: ${useSamples ? 'Sample-based' : 'Oscillator-based'}`);
+  }
+
+  /**
+   * 現在の音源タイプを取得
+   */
+  public isUsingSamples(): boolean {
+    return this.useSamples && this.samplesLoaded;
+  }
+
+  /**
    * リソースのクリーンアップ
    */
   public destroy(): void {
     try {
-      // すべてのアクティブな音源を停止
+      // すべてのアクティブなオシレーターを停止
       this.activeOscillators.forEach(osc => {
         try {
           osc.stop();
@@ -298,6 +496,21 @@ export class AudioFeedbackManager {
         }
       });
       this.activeOscillators.clear();
+
+      // すべてのアクティブなバッファソースを停止
+      this.activeBufferSources.forEach(source => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (e) {
+          // 既に停止している場合は無視
+        }
+      });
+      this.activeBufferSources.clear();
+
+      // サンプルバッファをクリア
+      this.sampleBuffers.clear();
+      this.samplesLoaded = false;
 
       // AudioContextをクローズ
       if (this.audioContext) {
